@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Auth Login Helper - Credentials
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/
 // @version      1.0
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
