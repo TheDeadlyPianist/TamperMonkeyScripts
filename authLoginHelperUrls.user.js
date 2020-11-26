@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      1.0
+// @version      1.1
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -215,14 +215,17 @@
         url: urlItsassStandardBase, port: 9302,
         start: "/2020/start",
         overview: "/2020/view",
-        setMtditid: "/test-only/agent-access/",
-        setPriorSubmission: "/test-only/prior-submission"
+        setMtditid: "/test-only/2020/agent-access/",
+        setPriorSubmission: "/test-only/2020/prior-submission",
+        additionalParameters: "/test-only/2020/additional-parameters",
+        additionalParametersNino: "/test-only/2020/additional-parameters?NINO=AA123456A"
     });
     serviceMapping.set("personal-income-tax-submission-frontend", {
         url: urlPitsassStandardBase, port: 9308,
-        ukdividends: "/dividends/uk-dividends",
-        otherdividends: "/dividends/other-dividends",
-        cya: "/dividends/check-your-answers"
+        ukdividends: "2020/dividends/uk-dividends",
+        otherdividends: "2020/dividends/other-dividends",
+        dividendscya: "2020/dividends/check-your-answers",
+        interestcya: "2020/interest/check-your-answers"
     });
 
     var vatSummaryFrontendList = generateListHtml("vat-summary-frontend", "vsf_list", [
@@ -262,13 +265,16 @@
         generateBoxHtml("start page", "its_start"),
         generateBoxHtml("overview page", "its_overview"),
         generateBoxHtml("set mtditid in sessions", "its_setMtditid"),
-        generateBoxHtml("set prior submission values", "its_setPriorSubmission")
+        generateBoxHtml("set prior submission values", "its_setPriorSubmission"),
+        generateBoxHtml("set additional values", "its_additionalParameters"),
+        generateBoxHtml("set additional values - NINO Prefill", "its_additionalParametersNino")
     ]);
 
     var personalIncomeTaxSubmissionFrontend = generateListHtml("personal-income-tax-submission-frontend", "pits_list", [
         generateBoxHtml("uk dividends page", "pits_ukdividends"),
         generateBoxHtml("other dividends page", "pits_otherdividends"),
-        generateBoxHtml("check your answers", "pits_cya")
+        generateBoxHtml("dividends check your answers", "pits_dividendscya"),
+        generateBoxHtml("interest check your answers", "pits_interestcya")
     ]);
 
     createGroup("ITSA", [
