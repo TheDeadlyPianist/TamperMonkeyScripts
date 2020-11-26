@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      1.1
+// @version      1.1.2
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -222,10 +222,10 @@
     });
     serviceMapping.set("personal-income-tax-submission-frontend", {
         url: urlPitsassStandardBase, port: 9308,
-        ukdividends: "2020/dividends/uk-dividends",
-        otherdividends: "2020/dividends/other-dividends",
-        dividendscya: "2020/dividends/check-your-answers",
-        interestcya: "2020/interest/check-your-answers"
+        ukdividends: "/2020/dividends/uk-dividends",
+        otherdividends: "/2020/dividends/other-dividends",
+        dividendscya: "/2020/dividends/check-your-answers",
+        interestcya: "/2020/interest/check-your-answers"
     });
 
     var vatSummaryFrontendList = generateListHtml("vat-summary-frontend", "vsf_list", [
