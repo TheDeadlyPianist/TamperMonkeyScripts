@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      1.2
+// @version      1.3
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
