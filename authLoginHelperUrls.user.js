@@ -1,168 +1,141 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      1.2
+// @version      2.0
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
 // ==/UserScript==
 
 (function() {
     'use strict';
 
+    var hoverVar;
+
     var isLocal = (location.hostname == "localhost" || location.hostname == "127.0.0.1" || location.hostname == "192.168.0.1")
 
-    var serviceMapping = new Map();
-
     var urlBoxSelector = "input[name=\"redirectionUrl\"]";
+    var newUrlLocation = "#inputForm > div.form-field-group > div:nth-child(4)"
 
-    var urlVatVcStandardBase = "/vat-through-software";
-    var urlItsassStandardBase = "/income-through-software/return";
-    var urlPitsassStandardBase = "/income-through-software/return/personal-income";
+    function handleGroupDelete(groupName) {
+        var confirmed = window.confirm("You are attempting to delete " + groupName + ".\n\nThis will delete all child data associated with it.\n\nAre you sure?");
+        if(confirmed) {
+            var allGroups = GM_getValue("groups", []);
 
-    var lastListClickedUrl = "";
-
-    var htmlObject = '';
-
-    function addFillEvent(serviceName, id) {
-        $("#" + id).click(function() {
-            var serviceObject = serviceMapping.get(serviceName);
-
-            var fillUrl;
-
-            if(isLocal) {
-                fillUrl = "http://localhost:" + serviceObject.port;
+            var index = allGroups.indexOf(groupName);
+            if(index > -1) {
+                allGroups.splice(index, 1);
+                GM_setValue("groups", allGroups);
+                location.reload();
             } else {
-                fillUrl = "";
+                window.alert("Could not find group");
             }
-
-            fillUrl = fillUrl + serviceObject.url;
-
-            $(urlBoxSelector).val(fillUrl);
-        });
+        }
     }
 
-    function addFillEventListItem(serviceName, id) {
-        $("#"+id).click(function() {
-            var serviceObject = serviceMapping.get(serviceName);
-            var extensionValue = id.split("_")[1];
-            var urlExtension = serviceObject[extensionValue];
+    function handleBaseUrlDelete(baseUrlName) {
+        var confirmed = window.confirm("You are attempting to delete " + baseUrlName + ".\n\nThis will delete all child data associated with it.\n\nAre you sure?");
+        if(confirmed) {
+            var allBaseUrls = GM_getValue("baseUrls", []);
 
-            var fillUrl;
-            if(isLocal) {
-                fillUrl = "http://localhost:" + serviceObject.port;
+            var index = allBaseUrls.map(function(element) {return element.base_name;}).indexOf(baseUrlName);
+            if(index > -1) {
+                allBaseUrls.splice(index, 1);
+                GM_setValue("baseUrls", allBaseUrls);
+                location.reload();
             } else {
-                fillUrl = "";
+                window.alert("Could not find Base Url");
             }
-            fillUrl = fillUrl + serviceObject.url + urlExtension;
-
-            $(urlBoxSelector).val(fillUrl);
-        })
+        }
     }
 
-    function addListToggleEvent(selector) {
-        $(selector).click(function(){
-            if(lastListClickedUrl != selector) { $(".loginHelperList").hide(); }
-            $(selector + "Items").toggle();
-            lastListClickedUrl = selector;
-        })
+    function handleRedirectUrlDelete(redirectName) {
+        var confirmed = window.confirm("You are attempting to delete the redirect URL " + redirectName + ".\n\nAre you sure?");
+        if(confirmed) {
+            var allRedirectUrls = GM_getValue("redirects", []);
+
+            var index = allRedirectUrls.map(function(element) { return element.redirect_name; }).indexOf(redirectName);
+            if(index > -1) {
+                allRedirectUrls.splice(index, 1);
+                GM_setValue("redirects", allRedirectUrls);
+                location.reload();
+            } else {
+                window.alert("Could not find the redirect URL");
+            }
+        }
+    }
+
+    function nameAsIdString(input) {
+        var idString = input.replace(/[^A-Za-z0-9\-]/ig, "");
+        return idString;
     }
 
     function addGroupToggle(groupName) {
-        $("#group_" + groupName + "_namePlate").click(function(){
+        $("#group_" + groupName + "_namePlate_name").click(function(){
             $(".loginHelperList").hide();
             $("#group_" + groupName + "_content").toggle();
         })
     }
 
-    function generateBoxHtml(serviceName, id) {
-        return {
-            htmlType: "box",
-            html: '<div class="button" id="' + id + '" style="margin:0;display:block;text-align:center;padding-top:9px;padding-bottom:9px;">' + serviceName + '</div>',
-            id: id,
-            serviceName: serviceName
-        };
-    }
-
-    function generateListHtml(listName, listId, items) {
-        var returnHtml = '';
-        var returnBoxes = [];
-
-        returnHtml += '<div id="' + listId + '" style="display: inline-block; margin-bottom: 20px; margin-right: 15px;">';
-        returnHtml += '<div class="button column-one-third" id="' + listId + 'Name" style="margin:0;">' + listName + '</div>'
-        returnHtml += '<div class="loginHelperList" id="' + listId + 'Items" style="display: none; width:25%; position:absolute; z-index:100">'
-        returnHtml += '<div style="width:100%; height:2px; background-color: black;">';
-
-        for(var i = 0; i < items.length; i ++) {
-            returnHtml += items[i].html;
-            returnHtml += '<div style="width:100%; height:2px; background-color: black;"></div>';
-            returnBoxes.push(items[i].id);
-        }
-
-        returnHtml += '</div></div></div>'
-
-        return {
-            htmlType: "list",
-            html: returnHtml,
-            id: listId,
-            serviceName: listName,
-            boxes: returnBoxes
-        };
-    }
-
-    function generateList(listName, listId, items) {
-        $("<div id=\""+listId+"\" style=\"display: inline-block; margin-bottom: 20px; margin-right: 15px;\">").insertBefore(urlBoxSelector);
-
-        var namePlate = "<div class=\"button column-one-third\" id=\""+listId+"Name\" style=\"margin:0;\">"+listName+"</div>"
-        var listItems = $("<div class=\"loginHelperList\" id=\""+listId+"Items\" style=\"display: none; width:25%; position:absolute; z-index:100\">"+"</div>");
-        listItems.append("<div style=\"width:100%; height:2px; background-color: black;\"></div>")
-
-        for(var i = 0; i < items.length; i ++) {
-            listItems.append(items[i].html);
-            listItems.append("<div style=\"width:100%; height:2px; background-color: black;\"></div>");
-        }
-
-        $("#"+listId).append(namePlate);
-        $("#"+listId).append(listItems);
-
-        for(var j = 0; j < items.length; j++) {
-            addFillEventListItem(listName, items[j].id);
-        }
-
-        addListToggleEvent("#"+listId);
-    }
-
-    function generateBox(name, id) {
-        $("<div class=\"button\" id="+id+" style=\"margin-bottom: 20px;\">" + name + "</div>").insertBefore(urlBoxSelector);
-        addFillEvent(name, id);
-    }
-
     function createGroup(groupName, innerContent) {
+        var idString = nameAsIdString(groupName);
 
-        var contentId = 'group_' + groupName + '_content';
+        var contentId = 'group_' + idString + '_content';
 
-        $('<div class="group" id="group_' + groupName + '"><div class="groupNamePlate" id="group_' + groupName + '_namePlate"><b>' + groupName + '</b></div><div id="' + contentId + '"></div></div>').insertBefore(urlBoxSelector);
-        $('#group_' + groupName).css("margin", "1% 0");
+        var deleteButton = $('<div class="group_deleteButton"></div>');
+        var deleteButtonInside = $('<div>+</div>');
 
-        $('#group_' + groupName + '_namePlate').css("cursor", "pointer");
-        $('#group_' + groupName + '_namePlate').css("width", "100%");
-        $('#group_' + groupName + '_namePlate').css("height", "20%");
-        $('#group_' + groupName + '_namePlate').css("background-color", "green");
-        $('#group_' + groupName + '_namePlate').css("color", "white");
-        $('#group_' + groupName + '_namePlate').css("text-align", "center");
-        $('#group_' + groupName + '_namePlate').css("box-sizing", "border-box");
-        $('#group_' + groupName + '_namePlate').css("border", "3px solid black");
-        $('#group_' + groupName + '_namePlate').css("padding", "0.3em 0");
+        deleteButtonInside
+            .css("font-size", "2em")
+            .css("transform", "rotate(45deg)");
 
-        $('#group_' + groupName + '_content').css("width", "100%");
-        $('#group_' + groupName + '_content').css("background-color", "LightGreen");
-        $('#group_' + groupName + '_content').css("padding", "1em 1%");
-        $('#group_' + groupName + '_content').css("box-sizing", "border-box");
-        $('#group_' + groupName + '_content').css("border", "3px solid black");
-        $('#group_' + groupName + '_content').css("border-top", "0");
+        $(deleteButton).append(deleteButtonInside);
 
-        console.log(innerContent);
+        var groupContainer = $('<div class="group" id="group_' + idString + '"></div>');
+        var namePlate = $('<div class="groupNamePlate" id="group_' + idString + '_namePlate"></div>');
+        var plateText = $('<div id="group_' + idString + '_namePlate_name"><b>' + groupName + '</b></div>');
+        var content = $('<div id="' + contentId + '"></div>');
+
+        deleteButton
+            .css("display", "inline-block")
+            .css("width", "10%")
+            .css("user-select", "none")
+            .click(function() {
+            handleGroupDelete(groupName);
+        });
+
+
+        plateText
+            .css("display", "inline-block")
+            .css("width", "90%")
+            .css("user-select", "none");
+
+        $(groupContainer).insertBefore(urlBoxSelector);
+        $(groupContainer).append(namePlate);
+        $(namePlate).append(plateText);
+        $(namePlate).append(deleteButton);
+        $(groupContainer).append(content);
+
+        $('#group_' + idString).css("margin", "1% 0");
+
+        $('#group_' + idString + '_namePlate').css("cursor", "pointer");
+        $('#group_' + idString + '_namePlate').css("width", "100%");
+        $('#group_' + idString + '_namePlate').css("height", "20%");
+        $('#group_' + idString + '_namePlate').css("background-color", "green");
+        $('#group_' + idString + '_namePlate').css("color", "white");
+        $('#group_' + idString + '_namePlate').css("text-align", "center");
+        $('#group_' + idString + '_namePlate').css("box-sizing", "border-box");
+        $('#group_' + idString + '_namePlate').css("border", "3px solid black");
+        $('#group_' + idString + '_namePlate').css("padding", "0.3em 0");
+
+        $('#group_' + idString + '_content').css("width", "100%");
+        $('#group_' + idString + '_content').css("background-color", "LightGreen");
+        $('#group_' + idString + '_content').css("padding", "1em 1%");
+        $('#group_' + idString + '_content').css("box-sizing", "border-box");
+        $('#group_' + idString + '_content').css("border", "3px solid black");
+        $('#group_' + idString + '_content').css("border-top", "0");
 
         for(var p = 0; p < innerContent.length; p++) {
             var currentContent = innerContent[p];
@@ -184,102 +157,342 @@
             }
         }
 
-        addGroupToggle(groupName);
+        addGroupToggle(idString);
     }
 
     $("<p>").insertBefore(urlBoxSelector);
 
-    //VAT VC service mappings
-    serviceMapping.set("vat-summary-frontend", {url: urlVatVcStandardBase, port: 9152, overview: "/vat-overview"});
-    serviceMapping.set("vat-agent-client-lookup-frontend", {url: urlVatVcStandardBase + "/representative/client-vat-number", port: 9149});
-    serviceMapping.set("vat-opt-out", {url: urlVatVcStandardBase + "/account/opt-out", port: 9166});
-    serviceMapping.set("vat-correspondence-frontend", {url: urlVatVcStandardBase + "/account/correspondence", port: 9148,
-                                                       root: "/", redirect: "/contact-preference-redirect",
-                                                       changeEmailStart: "/change-email-address",
-                                                       changeEmailSuccess: "/email-address-confirmation",
-                                                       paperToDigitalaStart: "/contact-preference-email",
-                                                       featureSwitch: "/test-only/feature-switch"});
-    serviceMapping.set("vat-return-period-frontend", {
-        url: urlVatVcStandardBase + "/account/returns",
-        port: 9167,
-        changeVatReturnDate: "/change-vat-return-dates"
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////// New URL Functions /////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    function handleNewGroupSubmit(name) {
+        var allGroups = GM_getValue("groups", []);
+
+        var valid = true;
+        if(allGroups.indexOf(name) > -1) { valid = false };
+
+        if(valid) {
+            allGroups.push(name);
+            GM_setValue("groups", allGroups);
+            location.reload();
+        } else {
+            window.alert("Duplicate name. This group already exist.");
+        }
+    }
+
+    function handleNewBaseSubmit(name, url, group) {
+        var allBaseUrls = GM_getValue("baseUrls", []);
+
+        var newBaseUrl = {
+            base_name: name,
+            base_url: url,
+            base_group: group
+        }
+
+        var valid = true;
+        allBaseUrls.forEach(function (element) {
+            if(element.base_name == name) {
+                valid = false;
+            }
+        });
+
+        if(group == "n/a") {
+            window.alert("Base URLs must be assigned to a group.");
+        }else if(valid) {
+            allBaseUrls.push(newBaseUrl);
+            GM_setValue("baseUrls", allBaseUrls);
+            location.reload();
+        } else {
+            window.alert("A base URL with this name already exist. For technical reasons, no two base URLs may share a name.");
+        }
+    }
+
+    function handleNewRedirectSubmit(name, url, group, base) {
+        var newRedirectUrl = {
+            redirect_name: name,
+            redirect_url: url,
+            redirect_group: group,
+            redirect_base: base
+        }
+
+        var allRedirects = GM_getValue("redirects", []);
+
+        var valid = true;
+        allRedirects.forEach(function (element) {
+            if(element.redirect_name == name && element.redirect_group == group && element.redirect_base == base) {
+                valid = false;
+            }
+        });
+
+        if(valid) {
+            allRedirects.push(newRedirectUrl);
+            GM_setValue("redirects", allRedirects);
+            location.reload();
+        } else {
+            window.alert("Redirect URL with this name already exist in this group, under this base URL.");
+        }
+    }
+
+    function getBaseUrlsForGroup(group) {
+        if(group == "n/a") {
+            return [];
+        } else {
+            var allBaseUrls = GM_getValue("baseUrls", []).map(function(element) {
+                return element.base_name;
+            });
+            return allBaseUrls;
+        }
+    };
+
+    function showNewBox(inputType) {
+        var baseUrlPlaceholder = "";
+        var urlPlaceholder = "";
+
+        var newInputSubmit = $('<div class="button">Submit</div>').css("user-select", "none");
+
+        switch(inputType) {
+            case "base":
+                baseUrlPlaceholder = "Enter a name for the base URL";
+                newInputSubmit.click(function() {handleNewBaseSubmit(
+                    $(newInputElement)[0].value,
+                    $(newUrlBox)[0].value,
+                    $(newGroupDropdown)[0].value
+                )});
+                break;
+            case "group":
+                baseUrlPlaceholder = "Enter a name for the new group";
+                newInputSubmit.click(function() {handleNewGroupSubmit($(newInputElement)[0].value);});
+                break;
+            case "redirect":
+                baseUrlPlaceholder = "Enter a name for the new redirect";
+                urlPlaceholder = "Enter a new redirect URL";
+                newInputSubmit.click(function() {handleNewRedirectSubmit(
+                    $(newInputElement)[0].value,
+                    $(newUrlBox)[0].value,
+                    $(newGroupDropdown)[0].value,
+                    $(newBaseUrlDropdown)[0].value
+                )});
+                break;
+            default:
+                break;
+        }
+
+        var existingGroups = GM_getValue("groups", []);
+
+        $('.newUrlInputContainer').remove();
+
+        var newGroupText = "New URL Group";
+        var redirText = "New Redirect URL"
+        var baseText = "New Base URL"
+        var inputTitle = ""
+
+        if(inputType == "redirect") {
+           inputTitle = redirText;
+        } else if(inputType == "base") {
+            inputTitle = baseText;
+        } else {
+            inputTitle = newGroupText;
+        }
+
+        var newInputContainer = $('<div class="newUrlInputContainer"></div>')
+        .css("margin-top", "20px")
+        .css("margin-bottom", "3em");
+
+        var newInputLabel = $('<label for"baseInput" class="label--inline">' + inputTitle + "</label>").css("user-select", "none");
+        var newInputElement = $('<input id="baseInput" placeholder="' + baseUrlPlaceholder + '"></input>').css("margin-right", "15px").css("margin-left", "15px");
+        var newGroupDropdown = $('<select name="urlGroup" id="newUrlGroup"><option value="n/a">No group</option></select>').css("display", "inline");
+        var newBaseUrlDropdown = $('<select name="urlBase" id="newUrlBase"><option value="n/a">No base URL</option></select>').css("display", "inline");
+        var newUrlBox = $('<input id="newBaseUrlInput" placeholder="Enter a base URL"></input>').css("margin-right", "15px").css("margin-left", "15px");
+
+        var newInputCancel = $('<div class="button">Cancel</div>').css("user-select", "none").click(function() {
+            $(newInputContainer).remove();
+        });
+
+        existingGroups.forEach(function(element) {
+            var newOption = '<option value="'+element+'">'+element+'</option>';
+            $(newGroupDropdown).append(newOption);
+        });
+
+        $(newGroupDropdown).change(function() {
+            var groupName = $(this)[0].value;
+            var baseUrls = getBaseUrlsForGroup(groupName);
+
+            console.log(baseUrls);
+
+            baseUrls.forEach(function(element) {
+                $(newBaseUrlDropdown).append('<option value="' + element + '">' + element + '</option>');
+            });
+        });
+
+        $(newInputContainer).append(newInputLabel);
+        $(newInputContainer).append(newInputElement);
+        if(inputType == "base" || inputType == "redirect") {
+            $(newInputContainer).append(newUrlBox);
+        }
+        if(inputType != "group") {
+            $(newInputContainer).append('<br>').append(newGroupDropdown);
+        }
+        if(inputType == "redirect") {
+            $(newInputContainer).append(newBaseUrlDropdown);
+        }
+        $(newInputContainer).append("<p></p>");
+        $(newInputContainer).append(newInputSubmit)
+        $(newInputContainer).append(newInputCancel);
+        $(newInputContainer).insertAfter("#but_newRedir");
+    }
+
+    $('<div class="button" id="but_newRedir">New Redirect URL</div>').css("user-select", "none")
+        .insertAfter(newUrlLocation)
+        .click(function() {
+        showNewBox("redirect");
     });
-    serviceMapping.set("manage-vat-subscription-frontend", {
-        url: urlVatVcStandardBase + "/account",
-        port: 9167,
-        changeBusinessAddress: "/change-business-address"
+
+    $('<div class="button" id="but_newBase">New Base URL</div>').css("user-select", "none")
+        .insertAfter(newUrlLocation)
+        .click(function() {
+        showNewBox("base");
     });
 
-    //ITSA Submission service mappings
-    serviceMapping.set("income-tax-submission-frontend", {
-        url: urlItsassStandardBase, port: 9302,
-        start: "/2020/start",
-        overview: "/2020/view",
-        setMtditid: "/test-only/2020/agent-access/",
-        setPriorSubmission: "/test-only/2020/prior-submission",
-        additionalParameters: "/test-only/2020/additional-parameters",
-        additionalParametersNino: "/test-only/2020/additional-parameters?NINO=AA123456A"
-    });
-    serviceMapping.set("personal-income-tax-submission-frontend", {
-        url: urlPitsassStandardBase, port: 9308,
-        ukdividends: "/2020/dividends/uk-dividends",
-        otherdividends: "/2020/dividends/other-dividends",
-        dividendscya: "/2020/dividends/check-your-answers",
-        interestcya: "/2020/interest/check-your-answers"
+    $('<div class="button" id="but_newGroup">New URL Group</div>').css("user-select", "none")
+        .insertAfter(newUrlLocation)
+        .click(function() {
+        showNewBox("group");
     });
 
-    var vatSummaryFrontendList = generateListHtml("vat-summary-frontend", "vsf_list", [
-        generateBoxHtml("overview", "vsf_overview")
-    ]);
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////// Construct Selection Window ////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    function constructGroups() {
+        GM_getValue("groups", []).forEach(function (element) {
+            createGroup(element, {});
+        });
+    }
 
-    var vatCorrespondenceFrontend = generateListHtml("vat-correspondence-frontend", "vcf_list", [
-        generateBoxHtml("root", "vcf_root"),
-        generateBoxHtml("redirect", "vcf_redirect"),
-        generateBoxHtml("change email journey start", "vcf_changeEmailStart"),
-        generateBoxHtml("change email journey success", "vcf_changeEmailSuccess"),
-        generateBoxHtml("paper to digital start", "vcf_paperToDigitalaStart"),
-        generateBoxHtml("feature switches", "vcf_featureSwitch")
-    ]);
+    function constructBaseUrls() {
+        var baseUrls = GM_getValue("baseUrls", []);
+        baseUrls.forEach(function(element) {
+            var name = element.base_name;
+            var baseUrlContentId = "base_" + nameAsIdString(element.base_name) + "_content";
+            var groupContentId = "#group_" + nameAsIdString(element.base_group) + "_content";
 
-    var vatAgentClientLookupFrontend = generateBoxHtml("vat-agent-client-lookup-frontend", "url_vaclf");
-    var vatOptOut = generateBoxHtml("vat-opt-out", "url_voo");
+            var tooltipContainer = $('<span></span>')
+            .css("position", "absolute")
+            .css("display", "inline-block")
+            .css("border-bottom", "1px dotted black")
+            .css("text-align", "center")
+            .css("width", "auto")
+            .css("bottom", "105%")
+            .css("left", "50%")
+            .css("margin-left", "-25%")
+            .css("background-color", "black")
+            .css("padding", "5px 2px")
+            .css("border-radius", "6px")
+            .css("visibility", "hidden")
+            .css("z-index", 1);
 
-    var vatReturnPeriodFrontend = generateListHtml("vat-return-period-frontend", "vrp_list", [
-        generateBoxHtml("change vat return date", "vrp_changeVatReturnDate")
-    ]);
+            var container = $('<div id="base_' + nameAsIdString(name) + '"></div>')
+            .css("min-width", "15%")
+            .css("margin-bottom", "2%")
+            .css("display", "inline-block");
 
-    var manageVarSubscriptionFrontend = generateListHtml("manage-vat-subscription-frontend", "mvs_list", [
-        generateBoxHtml("change vat return date", "mvs_changeBusinessAddress")
-    ]);
+            var containerName = $('<div class="button">'+name+'</div>')
+            .css("display", "inline-block")
+            .css("margin-right", "0").hover(
+                function () {
+                    hoverVar = setTimeout(function() {
+                        $(tooltipContainer).css("visibility", "visible");
+                    }, 1500)
+                },
+                function () {
+                    clearTimeout(hoverVar);
+                    $(tooltipContainer).css("visibility", "hidden");
+                }
+            )
+            .click(function() {
+                clearTimeout(hoverVar);
+                $(tooltipContainer).css("visibility", "hidden");
+                var isHidden = $(containerContent).is(":hidden");
+                if(isHidden) {
+                    $(".content_container").each(function() {
+                        $(this).hide();
+                    });
+                }
+                $(containerContent).toggle();
+            });
 
-    createGroup("VATVC", [
-        vatSummaryFrontendList,
-        vatAgentClientLookupFrontend,
-        vatOptOut,
-        vatCorrespondenceFrontend,
-        vatReturnPeriodFrontend,
-        manageVarSubscriptionFrontend
-    ]);
+            var deleteButton = $('<div class="button"></div>')
+            .append($('<div>+</div>').css("transform", "rotate(45deg)"))
+            .css("display", "inline-block").css("font-size", "1em")
+            .click(function() { handleBaseUrlDelete(name); });
 
-    var incomeTaxSubmissionFrontend = generateListHtml("income-tax-submission-frontend", "its_list", [
-        generateBoxHtml("start page", "its_start"),
-        generateBoxHtml("overview page", "its_overview"),
-        generateBoxHtml("set mtditid in sessions", "its_setMtditid"),
-        generateBoxHtml("set prior submission values", "its_setPriorSubmission"),
-        generateBoxHtml("set additional values", "its_additionalParameters"),
-        generateBoxHtml("set additional values - NINO Prefill", "its_additionalParametersNino")
-    ]);
+            var containerContent = $('<div id="' + baseUrlContentId + '" class="content_container"></div>')
+            .css("max-width", "30vw").css("position", "absolute").hide();
 
-    var personalIncomeTaxSubmissionFrontend = generateListHtml("personal-income-tax-submission-frontend", "pits_list", [
-        generateBoxHtml("uk dividends page", "pits_ukdividends"),
-        generateBoxHtml("other dividends page", "pits_otherdividends"),
-        generateBoxHtml("dividends check your answers", "pits_dividendscya"),
-        generateBoxHtml("interest check your answers", "pits_interestcya")
-    ]);
+            $(tooltipContainer).append(element.base_url);
 
-    createGroup("ITSA", [
-        incomeTaxSubmissionFrontend,
-        personalIncomeTaxSubmissionFrontend
-    ]);
+            $(containerName).append(tooltipContainer);
 
+            $(container).append(containerName);
+            $(container).append(deleteButton);
+            $(container).append(containerContent);
+
+            $(groupContentId).append(container);
+        });
+    }
+
+    function constructRedirectUrls() {
+        var allRedirects = GM_getValue("redirects", []);
+
+        allRedirects.forEach(function(element) {
+            var groupContentId = "#group_" + nameAsIdString(element.redirect_group) + "_content";
+            var baseId = "#base_" + nameAsIdString(element.redirect_base);
+            var baseContentId = "#base_" + nameAsIdString(element.redirect_base) + "_content";
+
+            var contentContainerSearchKey = groupContentId + " > " + baseId + " > " + baseContentId;
+            var contentContainer = $(contentContainerSearchKey)[0];
+
+            var deleteButton = $('<div class="button"></div>')
+            .append($('<div>+</div>').css("transform", "rotate(45deg)"))
+            .css("display", "inline-block").css("font-size", "1em")
+            .css("border-bottom", "1px solid black")
+            .css("margin-right", "0")
+            .css("box-sizing", "border-box")
+            .css("height", "100%")
+            .click(function () {
+                handleRedirectUrlDelete(element.redirect_name);
+            });
+
+            var newListOptionName = $('<span class="button"> &bull; ' + element.redirect_name + '</span>')
+            .css("display", "inline-block")
+            .css("margin-right", "0")
+            .css("border-bottom", "1px solid black")
+            .css("box-sizing", "border-box").click(function() {
+                var baseUrls = GM_getValue("baseUrls", []);
+                var url = "no url found";
+                baseUrls.forEach(function (baseElement) {
+                    if(baseElement.base_name == element.redirect_base) {
+                        url = baseElement.base_url;
+                    }
+                });
+
+                url = url + element.redirect_url;
+
+                $("#redirectionUrl")[0].value = url;
+                $(".content_container").each(function () { $(this).hide(); })
+            });
+
+            var newListOption = $('<div></div>')
+            .css("width", "100%")
+            .css("height", "auto")
+            .append(newListOptionName).append(deleteButton);
+
+            $(contentContainer).append(newListOption);
+        });
+    }
+
+    constructGroups();
+    constructBaseUrls();
+    constructRedirectUrls();
 })();
