@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      2.0
+// @version      2.1
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -118,7 +118,9 @@
         $(namePlate).append(deleteButton);
         $(groupContainer).append(content);
 
-        $('#group_' + idString).css("margin", "1% 0");
+        $('#group_' + idString)
+            .css("margin", "1% 0")
+            .css("z-index", "-1");
 
         $('#group_' + idString + '_namePlate').css("cursor", "pointer");
         $('#group_' + idString + '_namePlate').css("width", "100%");
@@ -136,26 +138,6 @@
         $('#group_' + idString + '_content').css("box-sizing", "border-box");
         $('#group_' + idString + '_content').css("border", "3px solid black");
         $('#group_' + idString + '_content').css("border-top", "0");
-
-        for(var p = 0; p < innerContent.length; p++) {
-            var currentContent = innerContent[p];
-            $("#" + contentId).append(currentContent.html);
-
-            if(currentContent.htmlType == "list") {
-                addListToggleEvent("#" + currentContent.id);
-
-                var boxes = currentContent.boxes;
-                for(var a = 0; a < boxes.length; a++) {
-                    addFillEventListItem(currentContent.serviceName, boxes[a]);
-                }
-            } else if(currentContent.htmlType == "box") {
-                $("#" + currentContent.id).removeAttr('style');
-                $("#" + currentContent.id).css("display", "inline-block");
-                $("#" + currentContent.id).css("margin-bottom", "20px");
-                $("#" + currentContent.id).css("margin-right", "15px");
-                addFillEvent(currentContent.serviceName, currentContent.id);
-            }
-        }
 
         addGroupToggle(idString);
     }
@@ -360,10 +342,8 @@
         showNewBox("group");
     });
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    ///////////////////////////////////////////////// Construct Selection Window ////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+
+    ///////////////////////////////////////////////////// Construct Selection Window /////////////////////////////////////////////////////
     function constructGroups() {
         GM_getValue("groups", []).forEach(function (element) {
             createGroup(element, {});
@@ -395,7 +375,9 @@
             var container = $('<div id="base_' + nameAsIdString(name) + '"></div>')
             .css("min-width", "15%")
             .css("margin-bottom", "2%")
-            .css("display", "inline-block");
+            .css("display", "inline-block")
+            .css("position", "relative")
+            .css("z-index", 1);
 
             var containerName = $('<div class="button">'+name+'</div>')
             .css("display", "inline-block")
@@ -427,8 +409,17 @@
             .css("display", "inline-block").css("font-size", "1em")
             .click(function() { handleBaseUrlDelete(name); });
 
+            var seperator = $('<div></div>')
+            .css("width", "100%")
+            .css("height", "0.5vh")
+            .css("background-color", "#5ba85c");
+
             var containerContent = $('<div id="' + baseUrlContentId + '" class="content_container"></div>')
-            .css("max-width", "30vw").css("position", "absolute").hide();
+            .css("width", "-webkit-fill-available")
+            .css("margin", "0 0.78947em 0 0")
+            .css("position", "absolute")
+            .css("background-color", "MediumSeaGreen")
+            .hide();
 
             $(tooltipContainer).append(element.base_url);
 
@@ -437,6 +428,7 @@
             $(container).append(containerName);
             $(container).append(deleteButton);
             $(container).append(containerContent);
+            $(containerContent).append(seperator);
 
             $(groupContentId).append(container);
         });
@@ -460,12 +452,14 @@
             .css("margin-right", "0")
             .css("box-sizing", "border-box")
             .css("height", "100%")
+            .css("width", "10%")
             .click(function () {
                 handleRedirectUrlDelete(element.redirect_name);
             });
 
             var newListOptionName = $('<span class="button"> &bull; ' + element.redirect_name + '</span>')
             .css("display", "inline-block")
+            .css("width", "90%")
             .css("margin-right", "0")
             .css("border-bottom", "1px solid black")
             .css("box-sizing", "border-box").click(function() {
