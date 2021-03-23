@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      2.1
+// @version      2.2
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -18,6 +18,11 @@
 
     var urlBoxSelector = "input[name=\"redirectionUrl\"]";
     var newUrlLocation = "#inputForm > div.form-field-group > div:nth-child(4)"
+
+    function correctUrlForEnv(input) {
+        var regex = /((http[s]{0,1}:\/\/){0,1}localhost(:\d{4}){0,1})/
+        return input.replace(regex, "");
+    }
 
     function handleGroupDelete(groupName) {
         var confirmed = window.confirm("You are attempting to delete " + groupName + ".\n\nThis will delete all child data associated with it.\n\nAre you sure?");
@@ -474,7 +479,7 @@
                     }
                 });
 
-                url = url + element.redirect_url;
+                url = correctUrlForEnv(url + element.redirect_url);
 
                 $("#redirectionUrl")[0].value = url;
                 $(".content_container").each(function () { $(this).hide(); })
