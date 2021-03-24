@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      2.2
+// @version      2.3
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_listValues
 // ==/UserScript==
 
 (function() {
@@ -19,9 +20,27 @@
     var urlBoxSelector = "input[name=\"redirectionUrl\"]";
     var newUrlLocation = "#inputForm > div.form-field-group > div:nth-child(4)"
 
+    function getStorageJson() {
+        var allEntries = GM_listValues();
+        var dataObject = {};
+
+        allEntries.forEach( dataName => {
+            var dataEntry = GM_getValue(dataName, []);
+            dataObject[dataName] = dataEntry;
+        })
+
+        //console.log(JSON.stringify(dataObject));
+    }
+
     function correctUrlForEnv(input) {
-        var regex = /((http[s]{0,1}:\/\/){0,1}localhost(:\d{4}){0,1})/
-        return input.replace(regex, "");
+        var returnValue = input;
+
+        if(!isLocal) {
+            var regex = /((http[s]{0,1}:\/\/){0,1}localhost(:\d{4}){0,1})/
+            returnValue = input.replace(regex, "");
+        }
+
+        return returnValue;
     }
 
     function handleGroupDelete(groupName) {
@@ -497,4 +516,6 @@
     constructGroups();
     constructBaseUrls();
     constructRedirectUrls();
+
+    getStorageJson();
 })();
