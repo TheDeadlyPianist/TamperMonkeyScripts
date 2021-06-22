@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      2.3
+// @version      2.4
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -12,6 +12,8 @@
 
 (function() {
     'use strict';
+
+    var topZ = 200;
 
     var hoverVar;
 
@@ -43,51 +45,80 @@
         return returnValue;
     }
 
+
+    function performRedirectUrlDelete(redirectName) {
+        var allRedirectUrls = GM_getValue("redirects", []);
+
+        var index = allRedirectUrls.map(function(element) { return element.redirect_name; }).indexOf(redirectName);
+        if(index > -1) {
+            allRedirectUrls.splice(index, 1);
+            GM_setValue("redirects", allRedirectUrls);
+            location.reload();
+        } else {
+            window.alert("Could not find the redirect URL");
+        }
+    }
+
+    function performBaseUrlDelete(baseUrlName) {
+        var allBaseUrls = GM_getValue("baseUrls", []);
+
+        var index = allBaseUrls.map(function(element) {return element.base_name;}).indexOf(baseUrlName);
+        if(index > -1) {
+            var allRelatedRedirects = GM_getValue("redirects", []).filter((redirElement) => {
+                if(redirElement.redirect_base == allBaseUrls[index].base_name) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }).forEach((elem => { performRedirectUrlDelete(elem.redirect_name); }));
+
+            allBaseUrls.splice(index, 1);
+                GM_setValue("baseUrls", allBaseUrls);
+            location.reload();
+        } else {
+            window.alert("Could not find Base Url");
+        }
+    }
+
+    function performGroupDelete(groupName) {
+        var allGroups = GM_getValue("groups", []);
+
+        var index = allGroups.indexOf(groupName);
+        if(index > -1) {
+            var allRelatedBase = GM_getValue("baseUrls", []).filter((baseElement) => {
+                if(baseElement.base_group == allGroups[index]) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }).forEach((elem => { performBaseUrlDelete(elem.base_name); }));
+
+            allGroups.splice(index, 1);
+            GM_setValue("groups", allGroups);
+            location.reload();
+        } else {
+            window.alert("Could not find group");
+        }
+    }
+
     function handleGroupDelete(groupName) {
         var confirmed = window.confirm("You are attempting to delete " + groupName + ".\n\nThis will delete all child data associated with it.\n\nAre you sure?");
         if(confirmed) {
-            var allGroups = GM_getValue("groups", []);
-
-            var index = allGroups.indexOf(groupName);
-            if(index > -1) {
-                allGroups.splice(index, 1);
-                GM_setValue("groups", allGroups);
-                location.reload();
-            } else {
-                window.alert("Could not find group");
-            }
+            performGroupDelete(groupName);
         }
     }
 
     function handleBaseUrlDelete(baseUrlName) {
         var confirmed = window.confirm("You are attempting to delete " + baseUrlName + ".\n\nThis will delete all child data associated with it.\n\nAre you sure?");
         if(confirmed) {
-            var allBaseUrls = GM_getValue("baseUrls", []);
-
-            var index = allBaseUrls.map(function(element) {return element.base_name;}).indexOf(baseUrlName);
-            if(index > -1) {
-                allBaseUrls.splice(index, 1);
-                GM_setValue("baseUrls", allBaseUrls);
-                location.reload();
-            } else {
-                window.alert("Could not find Base Url");
-            }
+            performBaseUrlDelete(baseUrlName);
         }
     }
 
     function handleRedirectUrlDelete(redirectName) {
         var confirmed = window.confirm("You are attempting to delete the redirect URL " + redirectName + ".\n\nAre you sure?");
         if(confirmed) {
-            var allRedirectUrls = GM_getValue("redirects", []);
-
-            var index = allRedirectUrls.map(function(element) { return element.redirect_name; }).indexOf(redirectName);
-            if(index > -1) {
-                allRedirectUrls.splice(index, 1);
-                GM_setValue("redirects", allRedirectUrls);
-                location.reload();
-            } else {
-                window.alert("Could not find the redirect URL");
-            }
+            performRedirectUrlDelete(redirectName);
         }
     }
 
@@ -244,7 +275,15 @@
         if(group == "n/a") {
             return [];
         } else {
-            var allBaseUrls = GM_getValue("baseUrls", []).map(function(element) {
+            var allBaseUrls = GM_getValue("baseUrls", []).filter((element) => {
+                var groupName = element.base_group
+
+                if(groupName == group) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }).map(function(element) {
                 return element.base_name;
             });
             return allBaseUrls;
@@ -324,7 +363,7 @@
             var groupName = $(this)[0].value;
             var baseUrls = getBaseUrlsForGroup(groupName);
 
-            console.log(baseUrls);
+            $(newBaseUrlDropdown).empty();
 
             baseUrls.forEach(function(element) {
                 $(newBaseUrlDropdown).append('<option value="' + element + '">' + element + '</option>');
@@ -403,8 +442,7 @@
             .css("min-width", "15%")
             .css("margin-bottom", "2%")
             .css("display", "inline-block")
-            .css("position", "relative")
-            .css("z-index", 1);
+            .css("position", "relative");
 
             var containerName = $('<div class="button">'+name+'</div>')
             .css("display", "inline-block")
@@ -428,6 +466,8 @@
                         $(this).hide();
                     });
                 }
+                $(container).css("z-index", topZ)
+                topZ++;
                 $(containerContent).toggle();
             });
 
