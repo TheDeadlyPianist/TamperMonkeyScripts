@@ -21,8 +21,18 @@ h4 {
     border-bottom: 2px solid #93ac90;
 }
 
-img {
+img :not(.img-no-border) {
     border: 2px solid #183908;
+}
+
+.install-button {
+    font-size: 30px;
+    color: black;
+    text-decoration: none;
+}
+
+.install-button :hover {
+    
 }
 
 .header-container {
@@ -44,6 +54,7 @@ img {
 }
 
 .script-name {
+    padding-left: 4%;
     background: #183908;
     color: white;
     height: 3em;
