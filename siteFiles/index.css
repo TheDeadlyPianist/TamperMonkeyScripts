@@ -1,5 +1,6 @@
 body {
-    background: #e7ffdb;
+    font-family: Arial, Helvetica, sans-serif;
+    background: white;
     margin: 0;
     user-select: none;
 }
@@ -21,8 +22,12 @@ h4 {
     border-bottom: 2px solid #93ac90;
 }
 
-img :not(.img-no-border) {
+img {
     border: 2px solid #183908;
+}
+
+.img-no-border {
+    border: 0;
 }
 
 .install-button {
