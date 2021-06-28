@@ -14,3 +14,7 @@ function getComponentContent(contentLink) {
 document.getElementById("auth-login-url").addEventListener("click", function () {
     getComponentContent("siteFiles/components/authLoginUrlComponent.html");
 })
+
+document.getElementById("auth-login-cred").addEventListener("click", function () {
+    getComponentContent("siteFiles/components/authLoginCredsComponent.html");
+})
