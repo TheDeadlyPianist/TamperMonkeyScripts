@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - Credentials
 // @namespace    https://github.com/
-// @version      2.0
+// @version      2.1
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -346,13 +346,31 @@ function generateCreateUserInput() {
         var validInput = true;
 
         if($(affinityInput).val() == "individual") {
-            var enrolment = $(enrolmentsContainer).children().first().find("input");
+            var _raw_enrolments = $(enrolmentsContainer).children();
+            var _individual_enrolments = [];
 
-            var _key = $($(enrolment)[0]).val();
-            var _name = $($(enrolment)[1]).val();
-            var _value = $($(enrolment)[2]).val();
+            $(_raw_enrolments).each(function() {
+                var _inputs = $(this).find("input");
 
-            if(!(nonBlank($(inputField).val()) && nonBlank($(ninoInput).val()) && nonBlank(_key) && nonBlank(_name) && nonBlank(_value))) { validInput = false; }
+                var _key = $($(_inputs)[0]).val();
+                var _name = $($(_inputs)[1]).val();
+                var _value = $($(_inputs)[2]).val();
+
+                if(!(nonBlank($(inputField).val()) && nonBlank($(ninoInput).val()) && nonBlank(_key) && nonBlank(_name) && nonBlank(_value))) { validInput = false; }
+
+                _individual_enrolments.push({
+                    key: _key,
+                    name: _name,
+                    value: _value
+                });
+            })
+
+
+            var enrolment = _individual_enrolments[0];
+
+            var _key = enrolment.key;
+            var _name = enrolment.name;
+            var _value = enrolment.value;
 
             if(validInput) {
                 createNewUser({
@@ -365,7 +383,8 @@ function generateCreateUserInput() {
                         key:_key,
                         identifierName: _name,
                         identifierValue: _value
-                    }
+                    },
+                    enrolments: _individual_enrolments
                 })
             } else {
                 window.alert("One or more field is blank.");
@@ -445,7 +464,9 @@ function generateCreateUserInput() {
     $(individualWindow)
         .append(placeInRow([clLabel, clDropdown]))
         .append(placeInRow([ninoLabel, ninoInput]))
-        .append(enrolmentsContainer);
+        .append(enrolmentsContainer)
+        .append(enrolmentPlusButton)
+        .append(enrolmentMinusButton);
 
     $(agentWindow)
         .append('<h2>Agent Enrolments</h2>')
@@ -591,14 +612,35 @@ function fillIndividual(input) {
     var nino = input.nino
     var confidenceLevel = input.confidence
 
-    var enrolmentKey = input.enrolment.key
-    var enrolmentIdentifier = input.enrolment.identifierName
-    var enrolmentValue = input.enrolment.identifierValue
-
     changeDropdown(confidenceLevelSelector, confidenceLevel);
     changeDropdown(affinityGroupSelector, "Individual");
     fillNino(nino);
-    fillFirstRow(enrolmentKey, enrolmentIdentifier, enrolmentValue);
+
+    if(input.enrolments == null || input.enrolments.length == 1) {
+        var enrolmentKey = input.enrolment.key
+        var enrolmentIdentifier = input.enrolment.identifierName
+        var enrolmentValue = input.enrolment.identifierValue
+
+        console.log("Updating enrolment row 1 with the following data:\nKey: "+enrolmentKey+"\nName: "+enrolmentIdentifier+"\nValue: "+enrolmentValue);
+
+        fillFirstRow(enrolmentKey, enrolmentIdentifier, enrolmentValue);
+    } else {
+        input.enrolments.forEach(function(_enrolment, index) {
+            var _key = _enrolment.key;
+            var _name = _enrolment.name;
+            var _value = _enrolment.value;
+
+            console.log("Updating enrolment row " + (index+1) + " with the following data:\nKey: "+_key+"\nName: "+_name+"\nValue: "+_value);
+
+            if($("[name='enrolment["+ index +"].name']").length < 1) {
+                document.getElementById("js-add-enrolment").click();
+            }
+
+            $("[name='enrolment["+ index +"].name']").val(_key);
+            $("#input-" + index + "-0-name").val(_name);
+            $("#input-" + index + "-0-value").val(_value);
+        });
+    }
 }
 
 function fillAgent(input) {
@@ -612,6 +654,8 @@ function fillAgent(input) {
         var _key = _enrolment.key;
         var _name = _enrolment.name;
         var _value = _enrolment.value;
+
+        console.log("Updating enrolment row " + (index+1) + ", for agent, with the following data:\nKey: "+_key+"\nName: "+_name+"\nValue: "+_value);
 
         if($("[name='enrolment["+ index +"].name']").length < 1) {
             document.getElementById("js-add-enrolment").click();
@@ -627,6 +671,8 @@ function fillAgent(input) {
         var _name = _enrolment.name;
         var _value = _enrolment.value;
         var _auth = _enrolment.auth
+
+        console.log("Updating delegated enrolment row " + (index+1) + " with the following data:\nKey: "+_key+"\nName: "+_name+"\nValue: "+_value+"\nAuth rule: "+_auth);
 
         $(addDelegatedEnrolmentButtonSelector).click();
 
