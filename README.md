@@ -1,5 +1,10 @@
 # TamperMonkeyScripts
 
+## Tamper Monkey Script Guides
+Guide URL: https://thedeadlypianist.github.io/TamperMonkeyScripts/
+
+Each script has an associated guide that explains, with pictures, exactly how to use them and to get the most out of them.
+
 ## Auth Login Helper - Credentials
 Install: http://github.com/TheDeadlyPianist/TamperMonkeyScripts/raw/main/authLoginHelperCreds.user.js
 
