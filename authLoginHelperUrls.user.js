@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      2.4
+// @version      2.6
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_listValues
+// @require      http://code.jquery.com/jquery-3.4.1.min.js
 // ==/UserScript==
 
 (function() {
@@ -20,7 +21,7 @@
     var isLocal = (location.hostname == "localhost" || location.hostname == "127.0.0.1" || location.hostname == "192.168.0.1")
 
     var urlBoxSelector = "input[name=\"redirectionUrl\"]";
-    var newUrlLocation = "#inputForm > div.form-field-group > div:nth-child(4)"
+    var newUrlLocation = "#redirectionUrl-hint"
 
     function getStorageJson() {
         var allEntries = GM_listValues();
@@ -139,7 +140,7 @@
 
         var contentId = 'group_' + idString + '_content';
 
-        var deleteButton = $('<div class="group_deleteButton"></div>');
+        var deleteButton = $('<div class="group_deleteButton govuk-button govuk-button--warning"></div>');
         var deleteButtonInside = $('<div>+</div>');
 
         deleteButtonInside
@@ -155,8 +156,11 @@
 
         deleteButton
             .css("display", "inline-block")
-            .css("width", "10%")
+            .css("height", "100%")
             .css("user-select", "none")
+            .css("margin", "0")
+            .css("padding", "0 0.5em")
+            .css("box-sizing", "border-box")
             .click(function() {
             handleGroupDelete(groupName);
         });
@@ -165,7 +169,8 @@
         plateText
             .css("display", "inline-block")
             .css("width", "90%")
-            .css("user-select", "none");
+            .css("user-select", "none")
+            .css("font-size", "2em");
 
         $(groupContainer).insertBefore(urlBoxSelector);
         $(groupContainer).append(namePlate);
@@ -294,7 +299,7 @@
         var baseUrlPlaceholder = "";
         var urlPlaceholder = "";
 
-        var newInputSubmit = $('<div class="button">Submit</div>').css("user-select", "none");
+        var newInputSubmit = $('<div class="govuk-button">Submit</div>').css("user-select", "none");
 
         switch(inputType) {
             case "base":
@@ -327,30 +332,48 @@
 
         $('.newUrlInputContainer').remove();
 
-        var newGroupText = "New URL Group";
-        var redirText = "New Redirect URL"
-        var baseText = "New Base URL"
-        var inputTitle = ""
+        var newGroupText = "Group Name";
+        var redirText = "Redirect URL Name";
+        var baseText = "Base URL Name";
+        var inputTitle = "";
+        var urlInputTitle = "";
 
         if(inputType == "redirect") {
            inputTitle = redirText;
+            urlInputTitle = "New Redirect URL";
         } else if(inputType == "base") {
             inputTitle = baseText;
+            urlInputTitle = "New Base URL";
         } else {
             inputTitle = newGroupText;
         }
 
         var newInputContainer = $('<div class="newUrlInputContainer"></div>')
         .css("margin-top", "20px")
-        .css("margin-bottom", "3em");
+        .css("margin-bottom", "3em")
+        .css("display", "flex")
+        .css("flex-direction", "column");
 
-        var newInputLabel = $('<label for"baseInput" class="label--inline">' + inputTitle + "</label>").css("user-select", "none");
-        var newInputElement = $('<input id="baseInput" placeholder="' + baseUrlPlaceholder + '"></input>').css("margin-right", "15px").css("margin-left", "15px");
-        var newGroupDropdown = $('<select name="urlGroup" id="newUrlGroup"><option value="n/a">No group</option></select>').css("display", "inline");
-        var newBaseUrlDropdown = $('<select name="urlBase" id="newUrlBase"><option value="n/a">No base URL</option></select>').css("display", "inline");
-        var newUrlBox = $('<input id="newBaseUrlInput" placeholder="Enter a base URL"></input>').css("margin-right", "15px").css("margin-left", "15px");
+        var submitAndCancelContainer = $('<div class="govuk-button-group"></div>');
 
-        var newInputCancel = $('<div class="button">Cancel</div>').css("user-select", "none").click(function() {
+        var newInputLabel = $('<label for"baseInput" class="govuk-label">' + inputTitle + "</label>").css("user-select", "none");
+        var newInputElement = $('<input class="govuk-input" id="baseInput" placeholder="' + baseUrlPlaceholder + '"></input>');
+        var newInputTextContainer = $('<div class="govuk-form-group"></div>').append(newInputLabel).append(newInputElement);
+
+
+        var newGroupDropdownLabel = $('<label class="govuk-label" for="newUrlGroup">Select Intended Group</label>');
+        var newGroupDropdown = $('<select name="urlGroup" id="newUrlGroup" class="govuk-select"><option value="n/a">No group</option></select>');
+        var newGroupDropdownContainer = $('<div class="govuk-form-group"></div>').append(newGroupDropdownLabel).append(newGroupDropdown);
+
+        var newBaseUrlDropdownLabel = $('<label class="govuk-label" for="newUrlGroup">Select Intended Base URL</label>');
+        var newBaseUrlDropdown = $('<select name="urlBase" id="newUrlBase" class="govuk-select"><option value="n/a">No base URL</option></select>');
+        var newBaseUrlContainer = $('<div class="govuk-form-group"></div>').append(newBaseUrlDropdownLabel).append(newBaseUrlDropdown);
+
+        var newUrlLabel = $('<label for"newBaseUrlInput" class="govuk-label">' + urlInputTitle + '</label>').css("user-select", "none");
+        var newUrlBox = $('<input id="newBaseUrlInput" class="govuk-input" placeholder="Enter a URL"></input>');
+        var newUrlContainer = $('<div class="govuk-form-group"></div>').append(newUrlLabel).append(newUrlBox);
+
+        var newInputCancel = $('<div class="govuk-button govuk-button--secondary">Cancel</div>').css("user-select", "none").click(function() {
             $(newInputContainer).remove();
         });
 
@@ -370,36 +393,36 @@
             });
         });
 
-        $(newInputContainer).append(newInputLabel);
-        $(newInputContainer).append(newInputElement);
+        $(newInputContainer).append(newInputTextContainer);
         if(inputType == "base" || inputType == "redirect") {
-            $(newInputContainer).append(newUrlBox);
+            $(newInputContainer).append(newUrlContainer);
         }
         if(inputType != "group") {
-            $(newInputContainer).append('<br>').append(newGroupDropdown);
+            $(newInputContainer).append('<br>').append(newGroupDropdownContainer);
         }
         if(inputType == "redirect") {
-            $(newInputContainer).append(newBaseUrlDropdown);
+            $(newInputContainer).append(newBaseUrlContainer);
         }
         $(newInputContainer).append("<p></p>");
-        $(newInputContainer).append(newInputSubmit)
-        $(newInputContainer).append(newInputCancel);
+        $(newInputContainer).append(submitAndCancelContainer)
+        $(submitAndCancelContainer).append(newInputSubmit)
+        $(submitAndCancelContainer).append(newInputCancel);
         $(newInputContainer).insertAfter("#but_newRedir");
     }
 
-    $('<div class="button" id="but_newRedir">New Redirect URL</div>').css("user-select", "none")
+    $('<div class="govuk-button" id="but_newRedir">New Redirect URL</div>').css("user-select", "none")
         .insertAfter(newUrlLocation)
         .click(function() {
         showNewBox("redirect");
     });
 
-    $('<div class="button" id="but_newBase">New Base URL</div>').css("user-select", "none")
+    $('<div class="govuk-button" id="but_newBase">New Base URL</div>').css("user-select", "none").css("margin-right", "10px")
         .insertAfter(newUrlLocation)
         .click(function() {
         showNewBox("base");
     });
 
-    $('<div class="button" id="but_newGroup">New URL Group</div>').css("user-select", "none")
+    $('<div class="govuk-button" id="but_newGroup">New URL Group</div>').css("user-select", "none").css("margin-right", "10px")
         .insertAfter(newUrlLocation)
         .click(function() {
         showNewBox("group");
@@ -440,13 +463,18 @@
 
             var container = $('<div id="base_' + nameAsIdString(name) + '"></div>')
             .css("min-width", "15%")
+            .css("margin", "0")
             .css("margin-bottom", "2%")
+            .css("margin-right", "5px")
             .css("display", "inline-block")
             .css("position", "relative");
 
-            var containerName = $('<div class="button">'+name+'</div>')
+            var containerName = $('<div class="govuk-button">'+name+'</div>')
             .css("display", "inline-block")
-            .css("margin-right", "0").hover(
+            .css("margin-right", "0")
+            .css("margin-bottom", "0")
+            .css("height", "2em")
+            .hover(
                 function () {
                     hoverVar = setTimeout(function() {
                         $(tooltipContainer).css("visibility", "visible");
@@ -471,9 +499,12 @@
                 $(containerContent).toggle();
             });
 
-            var deleteButton = $('<div class="button"></div>')
+            var deleteButton = $('<div class="govuk-button govuk-button--warning"></div>')
             .append($('<div>+</div>').css("transform", "rotate(45deg)"))
-            .css("display", "inline-block").css("font-size", "1em")
+            .css("display", "inline-block")
+            .css("margin-bottom", "0")
+            .css("box-sizing", "border-box")
+            .css("height", "2em")
             .click(function() { handleBaseUrlDelete(name); });
 
             var seperator = $('<div></div>')
@@ -482,10 +513,14 @@
             .css("background-color", "#5ba85c");
 
             var containerContent = $('<div id="' + baseUrlContentId + '" class="content_container"></div>')
-            .css("width", "-webkit-fill-available")
+            //.css("width", "-webkit-fill-available")
             .css("margin", "0 0.78947em 0 0")
             .css("position", "absolute")
             .css("background-color", "MediumSeaGreen")
+            .css("display", "flex")
+            .css("flex-direction", "column")
+            .css("border", "#00501a 5px solid")
+            .css("border-top", "0")
             .hide();
 
             $(tooltipContainer).append(element.base_url);
@@ -512,23 +547,24 @@
             var contentContainerSearchKey = groupContentId + " > " + baseId + " > " + baseContentId;
             var contentContainer = $(contentContainerSearchKey)[0];
 
-            var deleteButton = $('<div class="button"></div>')
+            var deleteButton = $('<div class="govuk-button govuk-button--warning"></div>')
             .append($('<div>+</div>').css("transform", "rotate(45deg)"))
-            .css("display", "inline-block").css("font-size", "1em")
+            .css("display", "inline-block")
             .css("border-bottom", "1px solid black")
-            .css("margin-right", "0")
+            .css("margin", "0")
             .css("box-sizing", "border-box")
-            .css("height", "100%")
-            .css("width", "10%")
+            .css("height", "2em")
             .click(function () {
                 handleRedirectUrlDelete(element.redirect_name);
             });
 
-            var newListOptionName = $('<span class="button"> &bull; ' + element.redirect_name + '</span>')
+            var newListOptionName = $('<span class="govuk-button"> &bull; ' + element.redirect_name + '</span>')
             .css("display", "inline-block")
-            .css("width", "90%")
-            .css("margin-right", "0")
+            .css("width", "-webkit-fill-available")
+            .css("margin", "0")
             .css("border-bottom", "1px solid black")
+            .css("height", "2em")
+            .css("white-space", "nowrap")
             .css("box-sizing", "border-box").click(function() {
                 var baseUrls = GM_getValue("baseUrls", []);
                 var url = "no url found";
@@ -545,8 +581,10 @@
             });
 
             var newListOption = $('<div></div>')
-            .css("width", "100%")
+            .css("width", "auto")
             .css("height", "auto")
+            .css("display", "flex")
+            .css("flex-direction", "row")
             .append(newListOptionName).append(deleteButton);
 
             $(contentContainer).append(newListOption);
