@@ -1,24 +1,27 @@
 // ==UserScript==
 // @name         Auth Login Helper - Credentials
 // @namespace    https://github.com/
-// @version      2.1
+// @version      2.1.1
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
+// @updateURL    https://github.com/TheDeadlyPianist/TamperMonkeyScripts/blob/main/authLoginHelperCreds.user.js
+// @downloadURL  https://github.com/TheDeadlyPianist/TamperMonkeyScripts/blob/main/authLoginHelperCreds.user.js
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_listValues
+// @require      http://code.jquery.com/jquery-3.4.1.min.js
 // ==/UserScript==
 
 var inputCount = 0;
 
-var newUserLocation = "#inputForm > div.form-field-group > div.form-group"
+var newUserLocation = "#inputForm > div.govuk-warning-text"
 
 var confidenceLevelSelector = "#confidenceLevel"
 var affinityGroupSelector = "#affinityGroupSelect"
 var ninoInputSelector = "#nino"
 
-var firstEnrolmentKeySelector = "#js-enrolments-table > tbody > tr:nth-child(2) > td:nth-child(1) > input[type=text]"
+var firstEnrolmentKeySelector = "[name='enrolment[0].name']"
 var firstIdentifierNameSelector = "#input-0-0-name"
 var firstIdentifierValueSelector = "#input-0-0-value"
 
@@ -181,8 +184,8 @@ function generateNewUserButtons() {
     var creationArea = $('<div id="creation-area"><div>').insertBefore(newUserLocation);
     var buttonContainer = $('<div id="button-container"></div>');
 
-    var createUserGroupButton = $('<div class="button" id="button_createUserGroup">Create User Group</div>').css("user-select", "none");
-    var createUserButton = $('<div class="button" id="button_createUser">Create New User</div>');
+    var createUserGroupButton = $('<div class="govuk-button" id="button_createUserGroup">Create User Group</div>').css("user-select", "none");
+    var createUserButton = $('<div class="govuk-button" id="button_createUser">Create New User</div>');
 
     var inputArea = $('<div id="area_input"></div>').css("padding-top", "25px");
 
@@ -200,10 +203,10 @@ function generateCreateGroupInput() {
     var label = $('<label for="input_createUserGroup" class="label--inline">User Group Name:</label>').css("user-select", "none");
     var inputField = $('<input id="input_createUserGroup" placeholder="Enter a new user group name">').css("margin-right", "15px").css("margin-left", "15px");
 
-    var submitButton = $('<div class="button">Submit</div>').css("user-select", "none").click(function() {
+    var submitButton = $('<div class="govuk-button">Submit</div>').css("user-select", "none").click(function() {
         createUserGroup($(inputField)[0].value);
     });
-    var cancelButton = $('<div class="button">Cancel</div>').css("user-select", "none").click(function() {
+    var cancelButton = $('<div class="govuk-button">Cancel</div>').css("user-select", "none").click(function() {
         $(inputArea).empty();
     });
 
@@ -342,7 +345,7 @@ function generateCreateUserInput() {
         $(delegatedEnrolmentMinusButton).show();
     });
 
-    var submitButton = $('<div class="button">Submit</div>').css("user-select", "none").click(function() {
+    var submitButton = $('<div class="govuk-button">Submit</div>').css("user-select", "none").click(function() {
         var validInput = true;
 
         if($(affinityInput).val() == "individual") {
@@ -457,7 +460,7 @@ function generateCreateUserInput() {
         }
     });
 
-    var cancelButton = $('<div class="button">Cancel</div>').css("user-select", "none").click(function() {
+    var cancelButton = $('<div class="govuk-button">Cancel</div>').css("user-select", "none").click(function() {
         $(inputArea).empty();
     });
 
@@ -496,15 +499,15 @@ function generateCreateUserInput() {
 function generateUserButton(input, group) {
     var buttonContainer = $('<div></div>').css("width", "100%").css("height", "auto");
 
-    var newButton = $('<div class="button">' + input.userName + '</div>')
+    var newButton = $('<div class="govuk-button">' + input.userName + '</div>')
     .css("display", "inline-block")
     .css("width", "85%")
     .css("margin-right", "0")
     .css("border-bottom", "1px solid black")
     .css("box-sizing", "border-box")
-    .css("user-select", "non");
+    .css("user-select", "none");
 
-    var deleteButton = $('<div class="button"></div>')
+    var deleteButton = $('<div class="govuk-button"></div>')
     .css("display", "inline-block")
     .css("user-select", "none")
     .css("font-size", "1em")
@@ -554,12 +557,12 @@ function generateUserGroupButtons() {
         var divider = $('<div></div>').css("width", "100%").css("height", "0.5vh").css("background-color", "rgb(91, 168, 92);")
         $(listContainer).append(divider);
 
-        var newButton = $('<div class="button" id="button_' + idPart + '">' + fieldName + '</div>')
+        var newButton = $('<div class="govuk-button" id="button_' + idPart + '">' + fieldName + '</div>')
         .css("user-select", "none")
         .css("margin-right", "0")
         .css("display", "inline-block");
 
-        var deleteButton = $('<div class="button"></div>').css("display", "inline-block").css("user-select", "none").css("font-size", "1em");
+        var deleteButton = $('<div class="govuk-button"></div>').css("display", "inline-block").css("user-select", "none").css("font-size", "1em");
         $(deleteButton).append($('<div>+</div>').css("transform", "rotate(45deg)"));
 
         var userButtons = elem.users.map(user => $(listContainer).append(generateUserButton(user, fieldName)));
@@ -585,7 +588,7 @@ function generateUserGroupButtons() {
         $(selectionField).append(newButtonContainer);
     });
 
-    $(selectionField).insertBefore("#inputForm > div.form-field-group > div.alert.alert--info");
+    $(selectionField).insertBefore("#inputForm > div.govuk-warning-text");
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
