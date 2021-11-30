@@ -28,7 +28,7 @@
         var dataObject = {};
 
         allEntries.forEach( dataName => {
-            var dataEntry = GM_getValue(dataName, []);
+            var dataEntry = GM_getValue(dataName, {});
             dataObject[dataName] = dataEntry;
         })
 
@@ -47,25 +47,25 @@
     }
 
 
-    function performRedirectUrlDelete(redirectName) {
-        var allRedirectUrls = GM_getValue("redirects", []);
+    async function performRedirectUrlDelete(redirectName) {
+        var allRedirectUrls = Object.values(await GM_getValue("redirects", {}));
 
         var index = allRedirectUrls.map(function(element) { return element.redirect_name; }).indexOf(redirectName);
         if(index > -1) {
             allRedirectUrls.splice(index, 1);
-            GM_setValue("redirects", allRedirectUrls);
+            await GM_setValue("redirects", allRedirectUrls);
             location.reload();
         } else {
             window.alert("Could not find the redirect URL");
         }
     }
 
-    function performBaseUrlDelete(baseUrlName) {
-        var allBaseUrls = GM_getValue("baseUrls", []);
+    async function performBaseUrlDelete(baseUrlName) {
+        var allBaseUrls = Object.values(await GM_getValue("baseUrls", {}));
 
         var index = allBaseUrls.map(function(element) {return element.base_name;}).indexOf(baseUrlName);
         if(index > -1) {
-            var allRelatedRedirects = GM_getValue("redirects", []).filter((redirElement) => {
+            var allRelatedRedirects = Object.values(await GM_getValue("redirects", {})).filter((redirElement) => {
                 if(redirElement.redirect_base == allBaseUrls[index].base_name) {
                     return true;
                 } else {
@@ -74,19 +74,19 @@
             }).forEach((elem => { performRedirectUrlDelete(elem.redirect_name); }));
 
             allBaseUrls.splice(index, 1);
-                GM_setValue("baseUrls", allBaseUrls);
+            await GM_setValue("baseUrls", allBaseUrls);
             location.reload();
         } else {
             window.alert("Could not find Base Url");
         }
     }
 
-    function performGroupDelete(groupName) {
-        var allGroups = GM_getValue("groups", []);
+    async function performGroupDelete(groupName) {
+        var allGroups = Object.values(await GM_getValue("groups", {}));
 
         var index = allGroups.indexOf(groupName);
         if(index > -1) {
-            var allRelatedBase = GM_getValue("baseUrls", []).filter((baseElement) => {
+            var allRelatedBase = Object.values(await GM_getValue("baseUrls", {})).filter((baseElement) => {
                 if(baseElement.base_group == allGroups[index]) {
                     return true;
                 } else {
@@ -95,7 +95,7 @@
             }).forEach((elem => { performBaseUrlDelete(elem.base_name); }));
 
             allGroups.splice(index, 1);
-            GM_setValue("groups", allGroups);
+            await GM_setValue("groups", allGroups);
             location.reload();
         } else {
             window.alert("Could not find group");
@@ -208,23 +208,23 @@
     ///////////////////////////////////////////////////// New URL Functions /////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function handleNewGroupSubmit(name) {
-        var allGroups = GM_getValue("groups", []);
+    async function handleNewGroupSubmit(name) {
+        var allGroups = Object.values(await GM_getValue("groups", {}));
 
         var valid = true;
         if(allGroups.indexOf(name) > -1) { valid = false };
 
         if(valid) {
             allGroups.push(name);
-            GM_setValue("groups", allGroups);
+            await GM_setValue("groups", allGroups);
             location.reload();
         } else {
             window.alert("Duplicate name. This group already exist.");
         }
     }
 
-    function handleNewBaseSubmit(name, url, group) {
-        var allBaseUrls = GM_getValue("baseUrls", []);
+    async function handleNewBaseSubmit(name, url, group) {
+        var allBaseUrls = Object.values(await GM_getValue("baseUrls", {}));
 
         var newBaseUrl = {
             base_name: name,
@@ -250,7 +250,7 @@
         }
     }
 
-    function handleNewRedirectSubmit(name, url, group, base) {
+    async function handleNewRedirectSubmit(name, url, group, base) {
         var newRedirectUrl = {
             redirect_name: name,
             redirect_url: url,
@@ -258,7 +258,7 @@
             redirect_base: base
         }
 
-        var allRedirects = GM_getValue("redirects", []);
+        var allRedirects = Object.values(await GM_getValue("redirects", {}));
 
         var valid = true;
         allRedirects.forEach(function (element) {
@@ -269,18 +269,18 @@
 
         if(valid) {
             allRedirects.push(newRedirectUrl);
-            GM_setValue("redirects", allRedirects);
+            await GM_setValue("redirects", allRedirects);
             location.reload();
         } else {
             window.alert("Redirect URL with this name already exist in this group, under this base URL.");
         }
     }
 
-    function getBaseUrlsForGroup(group) {
+    async function getBaseUrlsForGroup(group) {
         if(group == "n/a") {
             return [];
         } else {
-            var allBaseUrls = GM_getValue("baseUrls", []).filter((element) => {
+            var allBaseUrls = Object.values(await GM_getValue("baseUrls", {})).filter((element) => {
                 var groupName = element.base_group
 
                 if(groupName == group) {
@@ -295,7 +295,7 @@
         }
     };
 
-    function showNewBox(inputType) {
+    async function showNewBox(inputType) {
         var baseUrlPlaceholder = "";
         var urlPlaceholder = "";
 
@@ -328,7 +328,7 @@
                 break;
         }
 
-        var existingGroups = GM_getValue("groups", []);
+        var existingGroups = await GM_getValue("groups", {});
 
         $('.newUrlInputContainer').remove();
 
@@ -377,19 +377,19 @@
             $(newInputContainer).remove();
         });
 
-        existingGroups.forEach(function(element) {
+        Object.values(existingGroups).forEach(function(element) {
             var newOption = '<option value="'+element+'">'+element+'</option>';
             $(newGroupDropdown).append(newOption);
         });
 
         $(newGroupDropdown).change(function() {
             var groupName = $(this)[0].value;
-            var baseUrls = getBaseUrlsForGroup(groupName);
+            getBaseUrlsForGroup(groupName).then(baseUrls => {
+                $(newBaseUrlDropdown).empty();
 
-            $(newBaseUrlDropdown).empty();
-
-            baseUrls.forEach(function(element) {
-                $(newBaseUrlDropdown).append('<option value="' + element + '">' + element + '</option>');
+                baseUrls.forEach(function(element) {
+                    $(newBaseUrlDropdown).append('<option value="' + element + '">' + element + '</option>');
+                });
             });
         });
 
@@ -434,7 +434,7 @@
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     async function constructGroups() {
-        var groups = await GM_getValue("groups", [])
+        var groups = await GM_getValue("groups", {})
 
         Object.values(groups).forEach(function (element) {
             createGroup(element, {});
@@ -442,7 +442,7 @@
     }
 
     async function constructBaseUrls() {
-        var baseUrls = await GM_getValue("baseUrls", []);
+        var baseUrls = await GM_getValue("baseUrls", {});
         Object.values(baseUrls).forEach(function(element) {
             var name = element.base_name;
             var baseUrlContentId = "base_" + nameAsIdString(element.base_name) + "_content";
@@ -539,7 +539,7 @@
     }
 
     async function constructRedirectUrls() {
-        var allRedirects = await GM_getValue("redirects", []);
+        var allRedirects = await GM_getValue("redirects", {});
 
         Object.values(allRedirects).forEach(function(element) {
             var groupContentId = "#group_" + nameAsIdString(element.redirect_group) + "_content";
@@ -567,10 +567,10 @@
             .css("border-bottom", "1px solid black")
             .css("height", "2em")
             .css("white-space", "nowrap")
-            .css("box-sizing", "border-box").click(function() {
-                var baseUrls = GM_getValue("baseUrls", []);
+            .css("box-sizing", "border-box").click(async function() {
+                var baseUrls = await GM_getValue("baseUrls", {});
                 var url = "no url found";
-                baseUrls.forEach(function (baseElement) {
+                Object.values(baseUrls).forEach(function (baseElement) {
                     if(baseElement.base_name == element.redirect_base) {
                         url = baseElement.base_url;
                     }
