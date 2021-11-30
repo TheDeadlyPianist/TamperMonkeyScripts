@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      2.6
+// @version      2.6.1
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -20,7 +20,7 @@
 
     var isLocal = (location.hostname == "localhost" || location.hostname == "127.0.0.1" || location.hostname == "192.168.0.1")
 
-    var urlBoxSelector = "input[name=\"redirectionUrl\"]";
+    var urlBoxSelector = "#redirectionUrl";
     var newUrlLocation = "#redirectionUrl-hint"
 
     function getStorageJson() {
@@ -433,15 +433,17 @@
     ///////////////////////////////////////////////// Construct Selection Window ////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function constructGroups() {
-        GM_getValue("groups", []).forEach(function (element) {
+    async function constructGroups() {
+        var groups = await GM_getValue("groups", [])
+
+        Object.values(groups).forEach(function (element) {
             createGroup(element, {});
         });
     }
 
-    function constructBaseUrls() {
-        var baseUrls = GM_getValue("baseUrls", []);
-        baseUrls.forEach(function(element) {
+    async function constructBaseUrls() {
+        var baseUrls = await GM_getValue("baseUrls", []);
+        Object.values(baseUrls).forEach(function(element) {
             var name = element.base_name;
             var baseUrlContentId = "base_" + nameAsIdString(element.base_name) + "_content";
             var groupContentId = "#group_" + nameAsIdString(element.base_group) + "_content";
@@ -536,10 +538,10 @@
         });
     }
 
-    function constructRedirectUrls() {
-        var allRedirects = GM_getValue("redirects", []);
+    async function constructRedirectUrls() {
+        var allRedirects = await GM_getValue("redirects", []);
 
-        allRedirects.forEach(function(element) {
+        Object.values(allRedirects).forEach(function(element) {
             var groupContentId = "#group_" + nameAsIdString(element.redirect_group) + "_content";
             var baseId = "#base_" + nameAsIdString(element.redirect_base);
             var baseContentId = "#base_" + nameAsIdString(element.redirect_base) + "_content";
