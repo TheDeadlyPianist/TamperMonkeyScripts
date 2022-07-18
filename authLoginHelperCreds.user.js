@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - Credentials
 // @namespace    https://github.com/
-// @version      2.1.3
+// @version      3.0.0
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -10,732 +10,1350 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_listValues
+// @grant        GM_info
+// @grant        GM_getResourceURL
 // @require      http://code.jquery.com/jquery-3.4.1.min.js
+// @resource     capture_icon https://cdn-icons-png.flaticon.com/512/685/685661.png
+// @resource     new_profile_icon https://www.seekpng.com/png/full/132-1328947_icon-new-folder-new-folder-icon-png.png
+// @resource     overwrite_icon https://cdn.icon-icons.com/icons2/2248/PNG/512/file_replace_icon_136634.png
+// @resource     heart_icon https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Love_Heart_symbol.svg/512px-Love_Heart_symbol.svg.png
 // ==/UserScript==
 
-var inputCount = 0;
+var selectedUser;
+var selectedUserGroup;
 
-var newUserLocation = "#inputForm > div.govuk-warning-text"
+/////////////////////////////////////// Messages ///////////////////////////////////////////
+var appVersion = GM_info.script.version;
+var appTitle = "Auth Login Helper - Credentials v" + appVersion;
 
-var confidenceLevelSelector = "#confidenceLevel"
-var affinityGroupSelector = "#affinityGroupSelect"
-var ninoInputSelector = "#nino"
+var captureFormData = "Capture form data"
+var overwriteFormData = "Overwrite last selected user"
 
-var firstEnrolmentKeySelector = "[name='enrolment[0].name']"
-var firstIdentifierNameSelector = "#input-0-0-name"
-var firstIdentifierValueSelector = "#input-0-0-value"
+var saveUserHeader = "Save New User"
+var newProfileText = "Create a new user group"
+var userGroupLabel = "User Group"
+var userLabel = "New User Name"
+var userSaveButton = "Save new user"
+/////////////////////////////////////// Field Selectors ////////////////////////////////////
+var sel_credId = "#authorityId"
+var sel_gatewayToken = "#gatewayToken"
 
-function nonBlank(input) {
-    if((input == "") || (input == undefined)) {
-        return false;
+var sel_credStrength = "#credentialStrength"
+var sel_confidenceLevel = "#confidenceLevel"
+var sel_affinityGroup = "#affinityGroupSelect"
+var sel_usersName = "#usersName"
+var sel_email = "#email"
+var sel_role = "#credential-role-select"
+
+var sel_accessToken = "#accessToken"
+var sel_refreshToken = "#refreshToken"
+var sel_oAuthToken = "#idToken"
+
+var sel_scpProfileUrl = "#profile"
+var sel_scpGroupProfileUrl = "#groupProfile"
+var sel_scpEmailVerified = "#emailVerified"
+
+var sel_nino = "#nino"
+var sel_groupIdentifier = "#groupIdentifier"
+var sel_agentId = "#agentId"
+var sel_agentCode = "#agentCode"
+var sel_agentFriendlyName = "#agentFriendlyName"
+var sel_unreadMessageCount = "#unreadMessageCount"
+var sel_sessionId = "#sessionId"
+var sel_deviceId = "#deviceId"
+
+var sel_enrolmentTable = "#js-enrolments-table"
+var sel_addEnrolmentButton = "#js-add-enrolment"
+
+var sel_delegatedEnrolmentsTable = "#js-delegated-enrolments-table"
+var sel_addDelegatedEnrolmentButton = "#js-add-delegated-enrolment"
+
+var sel_itmpGivenName = "#itmp\\.givenName"
+var sel_itmpMiddleName = "#itmp\\.middleName"
+var sel_itmpFamilyName = "#itmp\\.familyName"
+var sel_itmpDOB = "#itmp\\.dateOfBirth"
+
+var sel_addressLine1 = "#addressLine1"
+var sel_addressLine2 = "#addressLine2"
+var sel_addressLine3 = "#addressLine3"
+var sel_addressLine4 = "#addressLine4"
+var sel_addressLine5 = "#addressLine5"
+var sel_addressPostCode = "#addressPostCode"
+var sel_addressCountryName = "#addressCountryName"
+var sel_addressCountryCode = "#addressCountryCode"
+
+const optionalFields = [
+    sel_credId, sel_gatewayToken, sel_usersName, sel_accessToken, sel_refreshToken, sel_oAuthToken, sel_scpProfileUrl, sel_scpGroupProfileUrl, sel_nino, sel_groupIdentifier,
+    sel_agentId, sel_agentCode, sel_agentFriendlyName, sel_unreadMessageCount, sel_sessionId, sel_deviceId, sel_itmpGivenName, sel_itmpMiddleName, sel_itmpFamilyName, sel_itmpDOB,
+    sel_addressLine1, sel_addressLine2, sel_addressLine3, sel_addressLine4, sel_addressLine5, sel_addressPostCode, sel_addressCountryName, sel_addressCountryCode
+];
+/////////////////////////////////////// Storage Constants //////////////////////////////////
+var USER_GROUPS = "user_groups"
+var USERS = "users"
+var FAVOURITES = "favourites"
+
+/////////////////////////////////////// Data Storage ///////////////////////////////////////
+function getUsers() {
+    return GM_getValue(USERS, []);
+}
+
+function saveUser(userData) {
+    console.log("Attempting to save new User: " + userData.name);
+
+    var users = getUsers();
+
+    var exists = false;
+
+    users.forEach(function (element) {
+        if(element.name == userData.name && element.group == userData.group) {
+            exists = true;
+            window.alert("This user already exists inside this group.\nIf you are trying to overwrite this user, please use the overwrite option.");
+            return;
+        }
+    })
+
+    if(!exists) {
+        users.push(userData);
+
+        GM_setValue(USERS, users);
+        $(".newUserScreen").remove();
+    }
+}
+
+function deleteUser(userName, userGroup) {
+    var users = getUsers();
+
+    var index = -1;
+
+    users.forEach(function (user, userIndex) {
+        if(user.name == userName && user.group == userGroup) {
+            index = userIndex;
+        }
+    });
+
+    if(index > -1) {
+        users.splice(index, 1);
+        GM_setValue(USERS, users);
+        removeFavourite(userName);
+    }
+}
+
+function overwriteUser(userName, userGroup, newData) {
+    var users = getUsers().map(user => {
+        if(user.name == userName && user.group == userGroup) {
+            user.data = newData;
+            return user;
+        } else {
+            return user;
+        }
+    });
+
+    GM_setValue(USERS, users);
+    location.reload();
+}
+
+function getUserGroups() {
+    return GM_getValue(USER_GROUPS, []);
+}
+
+function saveUserGroup(groupName) {
+    console.log("Attempting to save new User Group: " + groupName);
+
+    var groups = getUserGroups();
+
+    if(groups.includes(groupName)) {
+        window.alert("This group already exists");
     } else {
-        return true;
+        groups.push(groupName);
     }
+
+    GM_setValue(USER_GROUPS, groups.sort());
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////// Data Storage and Retrieval ////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-async function getValue(objectName) {
-    return Object.values(await GM_getValue(objectName, {}));
-}
+function deleteUserGroup(groupName) {
+    var users = getUsers();
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////// Delete Functions /////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    var filteredUsers = users.filter(function (user) {
+        return user.group != groupName
+    });
 
-async function deleteUserGroup(userGroup) {
-    var confirmed = window.confirm("You are about to delete the group: " + userGroup + "\n\n\This will delete all the users in the group.\nAre you sure?")
-    if(confirmed) {
-        getValue("userGroups").then(allGroups => {
-            var index = allGroups.map(function(elem) { return elem.name; }).indexOf(userGroup);
-            if(index > -1) {
-                allGroups.splice(index, 1);
+    GM_setValue(USERS, filteredUsers);
 
-                GM_setValue("userGroups", allGroups);
-                location.reload();
-            }
-        });
+    var userGroups = getUserGroups();
+
+    var index = userGroups.indexOf(groupName);
+    if(index > -1) {
+        userGroups.splice(index, 1);
     }
+
+    GM_setValue(USER_GROUPS, userGroups.sort());
 }
 
-async function deleteUser(userGroup, userName) {
-    var confirmed = window.confirm("You are about to delete the following user: " + userName + "\n\n\nAre you sure?");
-    if(confirmed) {
-        getValue("userGroups").then(allGroups => {
-            var index = allGroups.map(function(elem) { return elem.name; }).indexOf(userGroup);
-
-            if(index > -1) {
-                var userIndex = allGroups[index].users.map(function(elem) { return elem.userName }).indexOf(userName);
-                if(userIndex > -1) {
-                    allGroups[index].users.splice(userIndex, 1);
-
-                    GM_setValue("userGroups", allGroups);
-                    location.reload();
-                } else {
-                    window.alert("Could not find the user within the given group. Please refresh the page and try again.");
-                }
-            } else {
-                window.alert("Could not find the user group that the user belongs to. Please refresh the page and try again.");
-            }
-        });
-    }
+function convertGroupNameToId(groupName) {
+    return "group_row_" + groupName.replace(/\s/g, "X");
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////// New User Functions ////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function getFavourites() {
+    return GM_getValue(FAVOURITES, [])
+}
 
-async function createUserGroup(input) {
+function toggleFavourite(name, group) {
+    var favourites = getFavourites();
 
-    console.log("Input: " + input);
-    if(input == undefined || input == "") {
-        window.alert("Input is empty");
+    var index = -1;
+    favourites.forEach((fav, favIndex) => {
+        if(fav.name == name && fav.group == group) {
+            index = favIndex;
+        }
+    });
+
+    if(index > -1) {
+        favourites.splice(index, 1);
     } else {
-        getValue("userGroups").then(allUserGroups => {
-            var inGroup = false;
+        favourites.push({
+            name: name,
+            group: group
+        });
+    }
 
-            allUserGroups.forEach(function(elem, index) {
-                if(input == elem.name) inGroup = true;
-            });
+    GM_setValue(FAVOURITES, favourites.sort());
+}
 
-            if(inGroup) {
-                window.alert("This user group already exist");
-            } else {
-                var userGroup = {
-                    "name": input,
-                    "users": [],
-                    "agents": []
+function removeFavourite(name, group) {
+    var favourites = getFavourites();
+
+    var index = -1;
+
+    favourites.forEach((fav, favIndex) => {
+        if(fav.name == name && fav.group == group) {
+            index = favIndex;
+        }
+    })
+
+    if(index > -1) {
+        favourites.splice(index, 1);
+    }
+
+    GM_setValue(FAVOURITES, favourites.sort());
+}
+
+/////////////////////////////////////// Data Capture ///////////////////////////////////////
+// Helper Functions
+
+function extractTextFieldData(selector) {
+    var value = $(selector).val()
+    //console.log("Extracting field data from selector: " + selector + "\nFound value: " + value)
+    return value;
+}
+
+function selectorToField(selector) {
+    return selector.substring(1);
+}
+
+function addFieldAndValueToObject(object, field, value) {
+    if(value && value != "") {
+        object[field] = value;
+    }
+}
+
+function addFieldAndValueToObjectFromSelector(object, selector) {
+    var value = extractTextFieldData(selector);
+
+    if(value && value != "" && value != "N/A") {
+        object[selectorToField(selector)] = value;
+    }
+}
+
+// Object Construction
+
+function captureCredentialsSection() {
+    var credObject = {
+        addField: function(selector) { addFieldAndValueToObjectFromSelector(this, selector); }
+    }
+
+    credObject.addField(sel_credId);
+    credObject.addField(sel_gatewayToken);
+    credObject.addField(sel_credStrength);
+    credObject.addField(sel_confidenceLevel);
+    credObject.addField(sel_affinityGroup);
+    credObject.addField(sel_usersName);
+    credObject.addField(sel_email);
+    credObject.addField(sel_role);
+
+    delete credObject.addField;
+
+    return credObject;
+}
+
+function captureOAuthSection() {
+    var oAuthObject = {
+        addField: function(selector) { addFieldAndValueToObjectFromSelector(this, selector); }
+    }
+
+    oAuthObject.addField(sel_accessToken);
+    oAuthObject.addField(sel_refreshToken);
+    oAuthObject.addField(sel_oAuthToken);
+
+    delete oAuthObject.addField;
+
+    return oAuthObject;
+}
+
+function captureScpSection() {
+    var scpObject = {
+        addField: function(selector) { addFieldAndValueToObjectFromSelector(this, selector); }
+    }
+
+    scpObject.addField(sel_scpProfileUrl);
+    scpObject.addField(sel_scpGroupProfileUrl);
+    scpObject.addField(sel_scpEmailVerified);
+
+    delete scpObject.addField;
+
+    return scpObject;
+}
+
+function captureMiscSection() {
+    var miscObject = {
+        addField: function(selector) { addFieldAndValueToObjectFromSelector(this, selector); }
+    }
+
+    miscObject.addField(sel_nino);
+    miscObject.addField(sel_groupIdentifier);
+    miscObject.addField(sel_agentId);
+    miscObject.addField(sel_agentCode);
+    miscObject.addField(sel_agentFriendlyName);
+    miscObject.addField(sel_unreadMessageCount);
+    miscObject.addField(sel_sessionId);
+    miscObject.addField(sel_deviceId);
+
+    delete miscObject.addField;
+
+    return miscObject;
+}
+
+function captureItmpSection() {
+    var itmpObject = {
+        addField: function(field, value) { addFieldAndValueToObject(this, field, value); }
+    }
+
+    itmpObject.addField("itmp.givenName", extractTextFieldData(sel_itmpGivenName));
+    itmpObject.addField("itmp.middleName", extractTextFieldData(sel_itmpMiddleName));
+    itmpObject.addField("itmp.familyName", extractTextFieldData(sel_itmpFamilyName));
+    itmpObject.addField("itmp.dateOfBirth", extractTextFieldData(sel_itmpDOB));
+
+    delete itmpObject.addField;
+
+    return itmpObject;
+}
+
+function captureAddressSection() {
+    var addressObject = {
+        addField: function(selector) { addFieldAndValueToObjectFromSelector(this, selector); }
+    }
+
+    addressObject.addField(sel_addressLine1);
+    addressObject.addField(sel_addressLine2);
+    addressObject.addField(sel_addressLine3);
+    addressObject.addField(sel_addressLine4);
+    addressObject.addField(sel_addressLine5);
+    addressObject.addField(sel_addressPostCode);
+    addressObject.addField(sel_addressCountryName);
+    addressObject.addField(sel_addressCountryCode);
+
+    delete addressObject.addField;
+
+    return addressObject;
+}
+
+function captureEnrolment(row, isDelegated) {
+    var enrolmentObject = {
+        enrolmentKey: "",
+        identifiers: []
+    }
+
+    var columns = row.cells
+
+    var enrolmentKey = columns[0].querySelector("input").value;
+
+    if(enrolmentKey && enrolmentKey != "") {
+        enrolmentObject.enrolmentKey = enrolmentKey;
+
+        var identifierNamesHtml = columns[1].querySelectorAll("input");
+        var identifierNames = []
+
+        for(var i = 0; i < identifierNamesHtml.length; i++) {
+            identifierNames.push(identifierNamesHtml[i].value);
+        }
+
+        var identifierValuesHtml = columns[2].querySelectorAll("input");
+        var identifierValues = []
+
+        for(var j = 0; j < identifierValuesHtml.length; j++) {
+            identifierValues.push(identifierValuesHtml[j].value);
+        }
+
+        var identifiers = []
+
+        for(var k = 0; k < identifierNames.length; k++) {
+            if(identifierNames[k] && identifierNames[k] != "" && identifierValues[k] && identifierValues[k] != "") {
+                var identifier = {
+                    name: identifierNames[k],
+                    identifierValue: identifierValues[k]
                 }
-
-                allUserGroups.push(userGroup);
-                GM_setValue("userGroups", allUserGroups);
-                location.reload();
+                identifiers.push(identifier);
             }
+        }
+
+        enrolmentObject.identifiers = identifiers;
+
+        var finalColumnSelector = "select";
+        if(isDelegated) { finalColumnSelector = "input"; }
+
+        var enrolmentStatus = columns[5].querySelector(finalColumnSelector).value;
+
+        if(enrolmentStatus && enrolmentStatus != "") {
+            if(isDelegated) {
+                enrolmentObject.authRule = enrolmentStatus;
+            } else {
+                enrolmentObject.status = enrolmentStatus;
+            }
+        }
+
+        return enrolmentObject;
+    }
+}
+
+function captureEnrolments() {
+    var rowsHtml = $("#js-enrolments-table > tbody").children();
+    var enrolments = [];
+
+    for(var i = 1; i < rowsHtml.length; i++) {
+        var enrolment = captureEnrolment(rowsHtml[i], false);
+        if(enrolment) {
+            enrolments.push(enrolment);
+        }
+    }
+
+    return enrolments;
+}
+
+function captureDelegatedEnrolments() {
+    var rowsHtml = $("#js-delegated-enrolments-table > tbody");
+
+    if(rowsHtml && rowsHtml.children().length > 1) {
+        console.log("Found delegated enrolments fields.");
+        var children = rowsHtml.children();
+        var enrolments = []
+
+        for(var i = 1; i < children.length; i++) {
+            var delegatedEnrolment = captureEnrolment(children[i], true);
+            enrolments.push(delegatedEnrolment);
+        }
+
+        return enrolments;
+    } else {
+        console.log("There are no delegated enrolments.");
+    }
+}
+
+function captureForm() {
+    var captureObject = {
+        addField: function (field, value) { if(value && Object.keys(value).length != 0) { this[field] = value } }
+    }
+
+    captureObject.addField("creds", captureCredentialsSection())
+    captureObject.addField("oAuth", captureOAuthSection())
+    captureObject.addField("scp", captureScpSection())
+    captureObject.addField("misc", captureMiscSection())
+    captureObject.addField("itmp", captureItmpSection())
+    captureObject.addField("address", captureAddressSection())
+
+    var enrolments = captureEnrolments();
+
+    if(enrolments && enrolments.length > 0) {
+        captureObject.addField("enrolments", enrolments);
+    }
+
+    if(captureObject.creds.affinityGroupSelect == "Agent") {
+        var delegatedEnrolments = captureDelegatedEnrolments();
+        if(delegatedEnrolments && delegatedEnrolments.length > 0) {
+            captureObject.addField("delegatedEnrolments", delegatedEnrolments);
+        }
+    }
+
+    delete captureObject.addField;
+
+    return captureObject;
+}
+
+/////////////////////////////////////// Data Population ////////////////////////////////////
+function populateBasicData(data) {
+    if(data) {
+        $.each(data, (key, value) => {
+            $("#" + key.replace(".", "\\.")).val(value);
         });
     }
 }
 
-async function createNewUser(input) {
-    getValue("userGroups").then(allUserGroups => {
-        var foundUserGroup = allUserGroups.find(group => group.name == input.userGroup);
+function defaultDropDowns() {
+    $(sel_credStrength).val("strong");
+    $(sel_confidenceLevel).val("50");
+    $(sel_affinityGroup).val("Individual");
+    $(sel_role).val("User");
+}
 
-        if(foundUserGroup == undefined) {
-            window.alert("Could not find USER GROUP. Please check it actually exist.");
+function clearEnrolment(row, isDelegated, rowIndex) {
+    var columns = row.cells
+
+    $(columns[0].querySelector("input")).val("");
+
+    var identifierNamesHtml = columns[1].querySelectorAll("input");
+
+    for(var i = 0; i < identifierNamesHtml.length; i++) {
+        $(identifierNamesHtml[i]).val("");
+    }
+
+    var identifierValuesHtml = columns[2].querySelectorAll("input");
+
+    for(var j = 0; j < identifierValuesHtml.length; j++) {
+        $(identifierValuesHtml[j]).val("");
+    }
+
+    var identifierCount = identifierNamesHtml.length;
+
+    while(identifierCount != 1) {
+        removeTaxIdentifier(rowIndex);
+        identifierCount--;
+    }
+
+    var finalColumnSelector = "select";
+    if(isDelegated) { finalColumnSelector = "input"; }
+
+    if(isDelegated) {
+        $(columns[5].querySelector(finalColumnSelector)).val("");
+    } else {
+        $(columns[5].querySelector(finalColumnSelector)).val("Activated");
+    }
+}
+
+function clearEnrolments() {
+    var rowsHtml = $("#js-enrolments-table > tbody").children();
+
+    for(var i = 1; i < rowsHtml.length; i++) {
+        clearEnrolment(rowsHtml[i], false, i-1);
+    }
+}
+
+function enterEnrolmentData(row, isDelegated, rowIndex, enrolmentData) {
+    var columns = row.cells
+
+    $(columns[0].querySelector("input")).val(enrolmentData.enrolmentKey);
+
+    var identifierNamesHtml = columns[1].querySelectorAll("input");
+
+    var identifierCount = identifierNamesHtml.length;
+
+    while(identifierCount < enrolmentData.identifiers.length) {
+        identifierCount++;
+        if(isDelegated) {
+            var id = "#add-delegated-ident-btn-" + rowIndex
+            $(id).click();
+        } else {
+            addTaxIdentifier(rowIndex);
+        }
+    }
+
+    identifierNamesHtml = columns[1].querySelectorAll("input");
+
+    for(var i = 0; i < identifierNamesHtml.length; i++) {
+        $(identifierNamesHtml[i]).val(enrolmentData.identifiers[i].name);
+    }
+
+    var identifierValuesHtml = columns[2].querySelectorAll("input");
+
+    for(var j = 0; j < identifierValuesHtml.length; j++) {
+        $(identifierValuesHtml[j]).val(enrolmentData.identifiers[j].identifierValue);
+    }
+
+    var finalColumnSelector = "select";
+    if(isDelegated) { finalColumnSelector = "input"; }
+
+    if(isDelegated) {
+        $(columns[5].querySelector(finalColumnSelector)).val(enrolmentData.authRule);
+    } else {
+        $(columns[5].querySelector(finalColumnSelector)).val(enrolmentData.status);
+    }
+}
+
+function enterEnrolmentsData(enrolmentsData) {
+    if(enrolmentsData) {
+        var rowsHtml = $("#js-enrolments-table > tbody").children();
+
+        const enrolmentCount = enrolmentsData.length;
+        var rowCount = rowsHtml.length - 1;
+
+        while(rowCount < enrolmentCount) {
+            rowCount++;
+            addEnrolment();
+        }
+
+        rowsHtml = $("#js-enrolments-table > tbody").children();
+
+        enrolmentsData.forEach((value, index) => {
+            enterEnrolmentData(rowsHtml[index+1], false, index, value);
+        });
+    }
+}
+
+function enterDelegatedEnrolmentData(enrolmentsData) {
+    if(enrolmentsData) {
+        var rowsHtml = $("#js-delegated-enrolments-table > tbody").children();
+        var rowsToRemove = rowsHtml.length - 1;
+
+        while(rowsToRemove > 0) {
+            rowsToRemove--;
+            removeDelegatedEnrolment();
+        }
+
+        enrolmentsData.forEach(() => {
+            addDelegatedEnrolment();
+        })
+
+        rowsHtml = $("#js-delegated-enrolments-table > tbody").children();
+
+        enrolmentsData.forEach((value, index) => {
+            enterEnrolmentData(rowsHtml[index+1], true, index, value);
+        });
+    }
+}
+
+function populateForm (user) {
+    clearEnrolments();
+
+    optionalFields.forEach((value) => {
+        $(value).val("");
+    })
+
+    defaultDropDowns();
+
+    console.log("Populating " + user.name);
+
+    var userData = user.data;
+
+    populateBasicData(userData.creds);
+
+    showDelegatedEnrolmentIfAgentSelected();
+    hideAssistantOptionIfIndividualSelected();
+
+    populateBasicData(userData.oAuth);
+    populateBasicData(userData.scp);
+    populateBasicData(userData.misc);
+    populateBasicData(userData.itmp);
+    populateBasicData(userData.address);
+
+    enterEnrolmentsData(userData.enrolments);
+    if(userData.creds.affinityGroupSelect == "Agent") {
+        enterDelegatedEnrolmentData(userData.delegatedEnrolments);
+    }
+}
+
+/////////////////////////////////////// Frontend Code //////////////////////////////////////
+
+function generateStyles() {
+    var menuIconCss = `
+
+.menu_icon {
+  display: inline-block;
+}
+
+.bar1, .bar2, .bar3 {
+  width: 35px;
+  height: 5px;
+  background-color: white;
+  margin: 6px 0;
+  transition: 0.5s;
+}
+
+.change .bar1 {
+  -webkit-transform: rotate(-45deg) translate(-9px, 6px);
+  transform: rotate(-45deg) translate(-9px, 6px);
+}
+
+.change .bar2 {opacity: 0;}
+
+.change .bar3 {
+  -webkit-transform: rotate(45deg) translate(-8px, -8px);
+  transform: rotate(45deg) translate(-8px, -8px);
+}`
+
+    $('style').append(menuIconCss)
+    $('style').append(`
+        .sidebar {
+            position: fixed;
+            display: flex;
+            width: 50%;
+            height: 100%;
+            background: white;
+            box-sizing: border-box;
+            border-right: 5px solid black;
+            z-index: 1000;
+            transform: translate(-90%, 0);
+            -webkit-transform: translater(-90%, 0);
+            flex-direction: column;
+            user-select: none;
+            transition-duration: 0.5s;
+          }
+
+          .shown {
+            -webkit-transform: translater(0, 0);
+            transform: translate(0, 0);
+            transition-duration: 0.5s;
+          }
+
+          .sidebar_row {
+            width: 100%;
+            height: 7%;
+            border-bottom: 2px solid black;
+            display: flex;
+            flex-direction: row;
+            background-color: LightGreen;
+            font-size: 1.5em;
+          }
+
+          .sidebar_header {
+            background-color: Green;
+            color: White;
+            font-size: 1.8em;
+          }
+
+          .row_text {
+            width: 90%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+          }
+
+          .icon_container {
+            width: 10%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition-duration: 0.1s;
+          }
+
+          .capture_row:not(.unselectable):hover {
+            background-color: LightSeaGreen;
+            transition-duration: 0.2s;
+          }
+
+          .capture_icon {
+            background-image: url("${GM_getResourceURL("capture_icon")}");
+            width: 60%;
+            height: 60%;
+            background-size: contain;
+            background-repeat: no-repeat;
+          }
+
+          .new_profile_icon {
+            background-image: url("${GM_getResourceURL("new_profile_icon")}");
+            width: 60%;
+            height: 60%;
+            background-size: contain;
+            background-repeat: no-repeat;
+          }
+
+          .overwrite_icon {
+            background-image: url("${GM_getResourceURL("overwrite_icon")}");
+            width: 60%;
+            height: 60%;
+            background-size: contain;
+            background-repeat: no-repeat;
+          }
+
+          .heart_icon {
+            background-image: url("${GM_getResourceURL("heart_icon")}");
+            width: 60%;
+            height: 60%;
+            background-size: contain;
+            background-repeat: no-repeat;
+            opacity: 0.4;
+          }
+
+          .favourited {
+            opacity: 1;
+          }
+
+          .users_root_container {
+            height: 72%;
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+          }
+
+          .user_profiles_container {
+            height: 100%;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            border-right: 4px solid black;
+          }
+
+          .user_profiles_fav {
+            height: 100%;
+            width: 10%;
+            display: flex;
+            flex-direction: column;
+          }
+
+          .selectable {
+            cursor: pointer;
+          }
+
+          .unselectable {
+            cursor: default;
+            background-color: grey;
+          }
+
+          .close {
+            position: absolute;
+            right: 32px;
+            top: 32px;
+            width: 32px;
+            height: 32px;
+            opacity: 0.7;
+          }
+
+          .close:hover {
+            opacity: 1;
+          }
+
+          .close:before, .close:after {
+            position: absolute;
+            left: 15px;
+            content: ' ';
+            height: 33px;
+            width: 2px;
+            background-color: white;
+          }
+
+          .close:before {
+            transform: rotate(45deg);
+          }
+
+          .close:after {
+            transform: rotate(-45deg);
+          }
+
+          .newUserScreen {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            z-index: 2000;
+            background-color: rgba(0, 0, 0, 0.7);
+            user-select: none;
+          }
+
+          .close_row {
+            display: flex;
+            flex-direction: row-reverse;
+            width: 100%;
+            height: 10%;
+          }
+
+          .new_user_entry_container {
+            width: 100%;
+            height: 60%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+          }
+
+          .new_user_entry_header {
+            width: 80%;
+            height: 20%;
+            background-color: green;
+            border: 4px solid black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2em;
+          }
+
+          .new_user_entry_body {
+            width: 80%;
+            height: 40%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: LightGreen;
+            border: 4px solid black;
+            border-top: 0;
+            flex-direction: column;
+          }
+
+          .user_group_row {
+            width: 100%;
+            height: 40%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .user_group_select_label {
+            font-size: 1.5em;
+            padding-right: 1%;
+          }
+
+          .user_group_select {
+            width: 50%;
+            font-size: 1.5em;
+            color: black;
+          }
+
+          .user_group_name_row {
+            width: 100%;
+            height: 40%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: row;
+          }
+
+          .user_group_save_row {
+            width: 100%;
+            height: 20%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: row;
+          }
+
+          .group_row {
+            display: flex;
+            align-items: center;
+            flex-direction: row;
+            width: 100%;
+            height: 7%;
+            border-top: 3px solid black;
+          }
+
+          .group_row_name {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 90%;
+            background-color: green;
+            color: white;
+            font-size: 2em;
+            box-shadow: 0 2px 0 #55150b;
+          }
+
+          .group_row_cross {
+            width: 10%;
+            height: 100%;
+            margin-bottom: 0;
+          }
+
+          .group_row_contents {
+            display: flex;
+            flex-direction: column;
+          }
+
+          .user_row {
+            width: 100%;
+            height: 3em;
+            display: flex;
+            flex-direction: row;
+            background-color: LightGreen;
+            border-top: 2px solid black;
+          }
+
+          .user_row_name {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            width: 90%;
+            border-bottom: 2px solid LightSeaGreen;
+          }
+
+          .user_row_name:hover {
+            background-color: LightSeaGreen;
+            transition-duration: 0.2s;
+          }
+
+          .user_row_name_text {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 90%;
+            font-size: 2em;
+          }
+
+          .rotate_45 {
+            transform: rotate(45deg);
+            font-size: 2em;
+          }
+
+          .favourite_tag {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 20%;
+            width: 100%;
+            border-bottom: 2px solid black;
+            background-color: LightBlue;
+          }
+
+          .favourite_tag:hover {
+            background-color: LightSeaGreen;
+            transition-duration: 0.2s;
+          }
+    `)
+}
+
+function toggleMenu(element) {
+  element.classList.toggle("change");
+}
+
+function displayNewUserScreen() {
+    $('body').prepend(`
+        <div class="newUserScreen">
+            <div class="close_row">
+                <div id="close" class="close selectable"/>
+            </div>
+            <div class="new_user_entry_container">
+                <div class="new_user_entry_header">
+                    <b>${saveUserHeader}</b>
+                </div>
+                <div class="new_user_entry_body">
+                    <div class="user_group_row">
+                        <div class="user_group_select_label"><b>${userGroupLabel}</b></div>
+                        <select id="user_group_select" class="user_group_select"></select>
+                    </div>
+                    <div class="user_group_name_row">
+                        <div class="user_group_select_label"><b>${userLabel}</b></div>
+                        <input id="user_name_input" class="user_group_select">
+                    </div>
+                    <div class="user_group_save_row">
+                        <button id="user_save" class="govuk-button govuk-button--start">
+                          ${userSaveButton}
+                          <svg class="govuk-button__start-icon" xmlns="http://www.w3.org/2000/svg" width="17.5" height="19" viewBox="0 0 33 40" aria-hidden="true" focusable="false">
+                            <path fill="currentColor" d="M0 0h13l20 20-20 20H0l20-20z" />
+                          </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `)
+
+    var userGroups = getUserGroups();
+    userGroups.forEach(function (group) {
+        $("#user_group_select").append(`<option value="${group}">${group}</option>`);
+    })
+
+    $("#close").click(function () {
+        $(".newUserScreen").remove();
+    })
+
+    $("#user_save").click(function () {
+        var newUserName = $("#user_name_input").val();
+        var selectedUserGroup = $("#user_group_select").val();
+
+        if(selectedUserGroup == null || !selectedUserGroup || selectedUserGroup == "") {
+            window.alert("No user group selected. This means no user group exists, or they failed to load. Please close the new user window and reperform the data capture.");
             return;
         }
 
-        var allUsers = foundUserGroup.users;
-        var userExist = false;
-
-        allUsers.forEach(user => {
-            if(user.userName == input.userName) {
-                userExist = true;
-            }
-        });
-
-        if(userExist) {
-            window.alert("A user with this name already exist");
+        if(newUserName == null || !newUserName || newUserName == "") {
+            window.alert("You must enter a name for the uesr you are trying to save.");
             return;
         }
 
-        allUserGroups.forEach(group => {
-            if(group.name == input.userGroup) {
-                group.users.push(input);
-            }
-        });
-        GM_setValue("userGroups", allUserGroups);
+        var data = captureForm();
+
+        var userObject = {
+            name: newUserName,
+            group: selectedUserGroup,
+            data: data
+        }
+
+        saveUser(userObject);
         location.reload();
+    })
+}
+
+function selectUser(user) {
+    populateForm(user);
+    selectedUser = user.name;
+    selectedUserGroup = user.group;
+    $("#overwrite_row").removeClass("unselectable");
+}
+
+function generateFavouriteTag(user) {
+    var displayedName = "";
+    user.name.split(" ").forEach((value, index) => {
+        if(index < 4) {
+            displayedName += value[0];
+        }
+    });
+
+    return $(`<div class="favourite_tag selectable">${displayedName}</div>`).click(() => {
+        selectUser(user);
     });
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////// Form Creation ////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+function populateFavourites() {
+    const sel_favs = "#user_profiles_fav"
 
-function placeInRow(items) {
-    var newRow = $('<div class="displayRow"></div>')
-    .css("display", "flex")
-    .css("vertical-align", "text-bottom")
-    .css("margin-top", "5px")
-    .css("margin-bottom", "5px")
-    .css("height", "3em")
-    .css("width", "100%")
-    .css("box-sizing", "border")
-    .css("align-items", "center");
+    $(sel_favs).empty();
 
-    items.forEach(function(elem) {
-        $(newRow).append(elem);
-    });
+    const favourites = getFavourites();
+    const users = getUsers();
 
-    return newRow;
-}
-
-function stackRows(items) {
-    var newRow = $('<div class="displayRow"></div>')
-    .css("vertical-align", "text-bottom")
-    .css("margin-top", "5px")
-    .css("margin-bottom", "5px")
-    .css("height", "3em")
-    .css("width", "100%")
-    .css("box-sizing", "border");
-
-    items.forEach(function(elem) {
-        $(newRow).append(elem);
-    });
-
-    return newRow;
-}
-
-function generateNewUserButtons() {
-    var creationArea = $('<div id="creation-area"><div>').insertBefore(newUserLocation);
-    var buttonContainer = $('<div class="govuk-button-group" id="button-container"></div>').css("margin-bottom", "0");
-
-    var createUserGroupButton = $('<div class="govuk-button" id="button_createUserGroup">Create User Group</div>').css("user-select", "none").css("margin-bottom", "0");
-    var createUserButton = $('<div class="govuk-button" id="button_createUser">Create New User</div>').css("margin-bottom", "0");
-
-    var inputArea = $('<div id="area_input"></div>').css("padding", "25px 10px 0px 10px").css("background-color", "#f0f0f0").hide();
-
-    $(creationArea).css("padding-bottom", "20px").css("margin-bottom", "3em");
-
-    $(creationArea).append(buttonContainer);
-    $(creationArea).append(inputArea);
-    $(buttonContainer).append(createUserGroupButton);
-    $(buttonContainer).append(createUserButton);
-}
-
-function generateCreateGroupInput() {
-    var inputArea = $("#area_input")[0];
-    $(inputArea).show();
-
-    var label = $('<label for="input_createUserGroup" class="govuk-label">Name of the new User Group</label>').css("user-select", "none");
-    var inputField = $('<input class="govuk-input" id="input_createUserGroup" placeholder="Enter a new user group name">');
-    var newGroupNameFormElement = $('<div class="govuk-form-group"></div>').append(label).append(inputField);
-
-    var submitButton = $('<div class="govuk-button">Submit</div>').css("user-select", "none").click(function() {
-        createUserGroup($(inputField)[0].value);
-    });
-    var cancelButton = $('<div class="govuk-button govuk-button--secondary">Cancel</div>')
-    .css("user-select", "none")
-    .css("border-left", "grey solid 1px")
-    .css("border-top", "grey solid 1px")
-    .css("border-right", "grey solid 1px")
-    .click(function() {
-        $(inputArea).empty().hide();
-    });
-    var submitAndCancelButtons = $('<div class="govuk-button-group"></div>').append(submitButton).append(cancelButton);
-
-    $(inputArea).empty();
-    $(inputArea).append(newGroupNameFormElement);
-    $(inputArea).append('<p></p>');
-    $(inputArea).append(submitAndCancelButtons);
-}
-
-function newEnrolmentRow(delegated) {
-    var enrolmentKeyLabel = $('<label for="input_enrolmentKey_' + inputCount + '" class="enrolment_label label--inline">Enrolment Key</div>').css("width", "33%").css("user-select", "none");
-    var identifierNameLabel = $('<label for="input_identifierName_' + inputCount + '" class="enrolment_label label--inline">Identifier Name</div>').css("width", "33%").css("user-select", "none");
-    var identifierVlueLabel = $('<label for="input_identifierValue_' + inputCount + '" class="enrolment_label label--inline">Identifier Value</div>').css("width", "33%").css("user-select", "none");
-
-    var allLabels;
-
-    var enrolmentKeyInput = $('<div style="width: 33%;"><input id="input_enrolmentKey_' + inputCount + '" class="input_enrolmentKey" style="width: 80%;" placeholder="Enter an enrolment identifier"></div>').css("display", "inline-block");
-    var identifierNameInput = $('<div style="width: 33%;"><input id="input_identifierName_' + inputCount + '" class="input_identifierName" style="width: 80%;" placeholder="Enter an identifier name"></div>').css("display", "inline-block");
-    var identifierValueInput = $('<div style="width: 33%;"><input id="input_identifierValue_' + inputCount + '" class="input_identifierValue" style="width: 80%;" placeholder="Enter an identifier value"></div>').css("display", "inline-block");
-
-    var authRuleLabel = $('<label for="input_authRule_' + inputCount + '" class="authRule_label label--inline">Delegated Auth Rule</div>').css("width", "33%").css("user-select", "none");
-    var authRuleInput = $('<div style="width: 33%;"><input id="input_authRule_' + inputCount + '" class="input_authRule" style="width: 80%;" placeholder="Enter an auth rule value"></div>').css("display", "inline-block");
-
-    var allInputs;
-
-    if(delegated == true) {
-        allLabels = $(placeInRow([enrolmentKeyLabel, identifierNameLabel, identifierVlueLabel, authRuleLabel])).css("margin-bottom", "0").css("height", "2em");
-        allInputs = $(placeInRow([enrolmentKeyInput, identifierNameInput, identifierValueInput, authRuleInput])).css("margin-top", "0").css("top", "0");
-    } else {
-        allLabels = $(placeInRow([enrolmentKeyLabel, identifierNameLabel, identifierVlueLabel])).css("margin-bottom", "0").css("height", "2em");
-        allInputs = $(placeInRow([enrolmentKeyInput, identifierNameInput, identifierValueInput])).css("margin-top", "0").css("top", "0");
-    }
-
-    var combinedObjects = $(stackRows([allLabels, allInputs])).css("height", "auto");
-
-    inputCount ++;
-
-    return combinedObjects;
-}
-
-function generateCreateUserInput() {
-
-    getValue("userGroups").then(allGroups => {
-        var userGroupLabel = $('<label for="input_userGroup" class="label--inline">User Group</label>').css("user-select", "none")
-        var userGroupDropdown = $('<select id="input_userGroup"></select>').css("display", "inline-block");
-
-        allGroups.forEach(function(elem) {
-            $(userGroupDropdown).append('<option value="' + elem.name + '">' + elem.name + '</option>');
-        });
-
-        var agentWindow = $('<div class="agent_window"></div>').css("height", "auto");
-        var individualWindow = $('<div class="individual_window"></div>').css("height", "auto");
-
-        var affinityWindowHolder = $('<div class="affinity_window"></div>')
-        .append(individualWindow);
-
-        var inputArea = $("#area_input")[0];
-        $(inputArea).show();
-
-        var inputLabel = $('<label for="input_createUserGroup" class="label--inline">User Name:</label>').css("user-select", "none");
-        var inputField = $('<input id="input_createUserGroup" placeholder="Enter a name for a new user">').css("margin-right", "15px").css("margin-left", "15px");
-
-        var affinityLabel = $('<label for="input_affinityGroup" class="label--inline">Affinity Group: </div>').css("user-select", "none");
-        var affinityInput = $('<select id="input_affinityGroup"></select>')
-        .change(function() {
-            var newValue = $(this).val();
-            if(newValue == "agent") {
-                $(affinityWindowHolder).empty();
-                $(affinityWindowHolder).append(agentWindow);
-            } else {
-                $(affinityWindowHolder).empty();
-                $(affinityWindowHolder).append(individualWindow);
+    users.forEach((user) => {
+        favourites.forEach(fav => {
+            if(fav.name == user.name && fav.group == user.group) {
+                var newTag = generateFavouriteTag(user);
+                $(sel_favs).append(newTag);
             }
         })
-        .css("display", "inline-block")
-        .append('<option value="individual">Individual</option>')
-        .append('<option value="agent">Agent</option>');
+    });
+}
 
-        var clLabel = $('<label for="input_confidence" class="label--inline">Confidence Level</label>').css("user-select", "none");
-        var clDropdown = $('<select id="input_confidence"></select>')
-        .css("display", "inline-block")
-        .append('<option value="50">50</option>')
-        .append('<option value="200">200</option>')
-        .append('<option value="250">250</option>');
+function renderUserGroups() {
+    var html = $(`<div class="user_profiles_container"></div>`)
 
-        var ninoLabel = $('<label for="input_nino" class="label--inline">User NINO</label>').css("user-select", "none");
-        var ninoInput = $('<input id="input_nino" placeholder="Enter a NINO for the new user">');
+    var userGroups = getUserGroups();
 
-        var enrolmentsContainer = $('<div id="enrolments_window"></div>');
-        $(enrolmentsContainer).append(newEnrolmentRow());
+    userGroups.forEach(function (group) {
+        var groupContent = $(`<div id="${convertGroupNameToId(group)}_content" class="group_row_contents"></div>`)
+        var groupHeader = $(`<div id="${convertGroupNameToId(group)}" class="group_row selectable"></div>`);
 
-        var agentEnrolmentsContainer = $('<div id="agent_enrolments_window"></div>');
-        $(agentEnrolmentsContainer).append(newEnrolmentRow());
+        var groupName = $(`<div class="group_row_name"><b>${group}</b></div>`).click(function () {
+            $(groupContent).toggle();
+        });
+        var groupCross = $(`<div class="govuk-button govuk-button--warning group_row_cross"><div class="rotate_45">+</div></div>`)
+        .click(function () {
+            var confirm = window.confirm("Are you sure you want to delete the usergroup '" + group + "'\nThis will remove all users associated with this group.");
 
-        var agentDelegatedEnrolmentsContainer = $('<div id="agent_delegated_enrolments_window"></div>');
-        $(agentDelegatedEnrolmentsContainer).append(newEnrolmentRow(true));
-
-        var enrolmentMinusButton = $('<button id="enrolment_minus" type="button" class="button minus-button"><span>-</span></button>').hide().click(function() {
-            $(enrolmentsContainer).children().last().remove();
-            var childrenCount = $(enrolmentsContainer).children().length;
-            if(childrenCount <= 1) {
-                $(this).hide();
+            if(confirm) {
+                deleteUserGroup(group);
+                location.reload();
             }
+        })
+
+        $(groupHeader).append(groupName).append(groupCross)
+        $(groupContent).hide();
+
+        html
+            .append(groupHeader)
+            .append(groupContent);
+    });
+
+    return html;
+}
+
+function renderUsers() {
+    var users = getUsers();
+    var favourites = getFavourites();
+
+    users.forEach(function (user) {
+        console.log("User: " + user.name);
+        var name = user.name;
+        var group = user.group;
+
+        var groupSelector = "#" + convertGroupNameToId(group) + "_content"
+
+        var groupElement = $(groupSelector)
+
+        if(!groupElement) { return; }
+
+        var userHeaderText = $(`<div class="user_row_name_text"><b>${name}</b></div>`).click(function() {
+            selectUser(user);
         });
 
-        var agentEnrolmentMinusButton = $('<button id="agent_enrolment_minus" type="button" class="button minus-button"><span>-</span></button>').hide().click(function() {
-            $(agentEnrolmentsContainer).children().last().remove();
-            var childrenCount = $(agentEnrolmentsContainer).children().length;
-            if(childrenCount <= 1) {
-                $(this).hide();
+        var heartIcon = $(`<div class="heart_icon"/>`)
+
+        favourites.forEach(fav => {
+            if(fav.name == name && fav.group == group) {
+                $(heartIcon).addClass("favourited");
             }
-        });
+        })
 
-        var delegatedEnrolmentMinusButton = $('<button id="delegated_minus" type="button" class="button minus-button"><span>-</span></button>').hide().click(function() {
-            $(agentDelegatedEnrolmentsContainer).children().last().remove();
-            var childrenCount = $(agentDelegatedEnrolmentsContainer).children().length;
-            if(childrenCount <= 1) {
-                $(this).hide();
-            }
-        });
+        var userNameHeartIcon = $(`<div class="icon_container"></div>`).append(heartIcon).click(function () {
+            favourites = getFavourites();
 
-        var enrolmentPlusButton = $('<button id="enrolment_plus" type="button" class="button plus-button"><span>+</span></button>').click(() => {
-            $(enrolmentsContainer).append(newEnrolmentRow());
-            $(enrolmentMinusButton).show();
-        });
+            if(favourites.filter(fav => (fav.name == name && fav.group == group)).length > 0) {
+                toggleFavourite(name, group);
+                $(heartIcon).removeClass("favourited");
 
-        var agentEnrolmentPlusButton = $('<button id="agent_enrolment_plus" type="button" class="button plus-button"><span>+</span></button>').click(() => {
-            $(agentEnrolmentsContainer).append(newEnrolmentRow());
-            $(agentEnrolmentMinusButton).show();
-        });
-
-        var delegatedEnrolmentPlusButton = $('<button id="delegated_plus" type="button" class="button plus-button"><span>+</span></button>').click(() => {
-            $(agentDelegatedEnrolmentsContainer).append(newEnrolmentRow(true));
-            $(delegatedEnrolmentMinusButton).show();
-        });
-
-        var submitButton = $('<div class="govuk-button">Submit</div>').css("user-select", "none").click(function() {
-            var validInput = true;
-
-            if($(affinityInput).val() == "individual") {
-                var _raw_enrolments = $(enrolmentsContainer).children();
-                var _individual_enrolments = [];
-
-                $(_raw_enrolments).each(function() {
-                    var _inputs = $(this).find("input");
-
-                    var _key = $($(_inputs)[0]).val();
-                    var _name = $($(_inputs)[1]).val();
-                    var _value = $($(_inputs)[2]).val();
-
-                    if(!(nonBlank($(inputField).val()) && nonBlank($(ninoInput).val()) && nonBlank(_key) && nonBlank(_name) && nonBlank(_value))) { validInput = false; }
-
-                    _individual_enrolments.push({
-                        key: _key,
-                        name: _name,
-                        value: _value
-                    });
-                })
-
-
-                var enrolment = _individual_enrolments[0];
-
-                var _key = enrolment.key;
-                var _name = enrolment.name;
-                var _value = enrolment.value;
-
-                if(validInput) {
-                    createNewUser({
-                        userGroup: $(userGroupDropdown).val(),
-                        userName: $(inputField).val(),
-                        confidence: $(clDropdown).val(),
-                        nino: $(ninoInput).val(),
-                        affinity: "individual",
-                        enrolment: {
-                            key:_key,
-                            identifierName: _name,
-                            identifierValue: _value
-                        },
-                        enrolments: _individual_enrolments
-                    })
-                } else {
-                    window.alert("One or more field is blank.");
-                }
             } else {
-                var _enrolments_raw = $(agentEnrolmentsContainer).children();
-                var _delegatedEnrolments_raw = $(agentDelegatedEnrolmentsContainer).children();;
-
-                var _enrolments = [];
-                var _delegatedEnrolments = [];
-
-                if(!nonBlank($(inputField).val())) { validInput = false; }
-
-                $(_enrolments_raw).each(function() {
-                    var _inputs = $(this).find("input");
-
-                    var _key = $($(_inputs)[0]).val();
-                    var _name = $($(_inputs)[1]).val();
-                    var _value = $($(_inputs)[2]).val();
-
-                    if(!(nonBlank(_key) && nonBlank(_name) && nonBlank(_value))) { validInput = false; }
-
-                    _enrolments.push({
-                        key: _key,
-                        name: _name,
-                        value: _value
-                    });
-                })
-
-                var missingDelegateData = false;
-
-                $(_delegatedEnrolments_raw).each(function() {
-                    var _inputs = $(this).find("input");
-
-                    var _key = $($(_inputs)[0]).val();
-                    var _name = $($(_inputs)[1]).val();
-                    var _value = $($(_inputs)[2]).val();
-                    var _auth = $($(_inputs)[3]).val();
-
-                    var dataExist = nonBlank(_key) || nonBlank(_name) || nonBlank(_value) || nonBlank(_auth);
-
-                    if(dataExist) {
-                        if(nonBlank(_key) && nonBlank(_name) && nonBlank(_value) && nonBlank(_auth)) {
-                            _delegatedEnrolments.push({
-                                key: _key,
-                                name: _name,
-                                value: _value,
-                                auth: _auth
-                            });
-                        } else {
-                            missingDelegateData = true;
-                        }
+                if(favourites.length < 5) {
+                    if(name.split(" ").length > 4) {
+                        window.alert("Names longer than 4 words will only have their first 4 characters displayed in the favourites bar.");
                     }
-
-                })
-
-                if(validInput && !missingDelegateData) {
-                    createNewUser({
-                        userGroup: $(userGroupDropdown).val(),
-                        userName: $(inputField).val(),
-                        affinity: "agent",
-                        enrolments: _enrolments,
-                        delegated: _delegatedEnrolments
-                    })
-                } else if(missingDelegateData) {
-                    window.alert("You have entered data for some delegated fields, but not all. Please remove entered data, or complete the enrolment.");
+                    toggleFavourite(name, group);
+                    $(heartIcon).addClass("favourited");
                 } else {
-                    window.alert("One or more field is blank.");
+                    window.alert("You can only add up to 5 favourites.");
                 }
             }
+
+            populateFavourites();
         });
 
-        var cancelButton = $('<div class="govuk-button govuk-button--secondary">Cancel</div>')
-        .css("border-left", "grey solid 1px")
-        .css("border-top", "grey solid 1px")
-        .css("border-right", "grey solid 1px")
-        .css("user-select", "none").click(function() {
-            $(inputArea).empty().hide();
-        });
+        var userHeader = $(`<div class="user_row_name"></div>`).append(userHeaderText).append(userNameHeartIcon);
 
-        var submitAndCancelButtons = $('<div class="govuk-button-group"></div>').append(submitButton).append(cancelButton);
-
-        $(individualWindow)
-            .append(placeInRow([clLabel, clDropdown]))
-            .append(placeInRow([ninoLabel, ninoInput]))
-            .append(enrolmentsContainer)
-            .append(enrolmentPlusButton)
-            .append(enrolmentMinusButton);
-
-        $(agentWindow)
-            .append('<h2>Agent Enrolments</h2>')
-            .append(agentEnrolmentsContainer)
-            .append(agentEnrolmentPlusButton)
-            .append(agentEnrolmentMinusButton)
-            .append('<h2>Delegated Agent Enrolments</h2>')
-            .append(agentDelegatedEnrolmentsContainer)
-            .append(delegatedEnrolmentPlusButton)
-            .append(delegatedEnrolmentMinusButton);
-
-        $(inputArea).empty();
-        $(inputArea)
-            .append(placeInRow([userGroupLabel, userGroupDropdown]))
-            .append(placeInRow([inputLabel, inputField]))
-            .append(placeInRow([affinityLabel, affinityInput]))
-            .append(affinityWindowHolder)
-            .append('<p></p>')
-            .append(submitAndCancelButtons);
-    });
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////// Selection Creation ////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-function generateUserButton(input, group) {
-    var buttonContainer = $('<div></div>')
-    .css("height", "auto")
-    .css("display", "flex")
-    .css("flex-direction", "row");
-
-    var newButton = $('<div class="govuk-button">' + input.userName + '</div>')
-    .css("display", "inline-block")
-    .css("width", "-webkit-fill-available")
-    .css("height", "2em")
-    .css("margin", "0")
-    .css("border-bottom", "1px solid black")
-    .css("box-sizing", "border-box")
-    .css("user-select", "none")
-    .css("white-space", "nowrap");
-
-    var deleteButton = $('<div class="govuk-button govuk-button--warning"></div>')
-    .css("user-select", "none")
-    .css("display", "inline-block")
-    .css("margin", "0")
-    .css("box-sizing", "border-box")
-    .css("height", "2em")
-
-    $(newButton).click(function() { fillUser(input); })
-
-    $(deleteButton).append($('<div>+</div>').css("transform", "rotate(45deg)"));
-    $(deleteButton).click(function() {
-        deleteUser(group, input.userName);
-    });
-
-    $(buttonContainer).append(newButton);
-    $(buttonContainer).append(deleteButton);
-
-    return buttonContainer;
-}
-
-function generateUserGroupButtons() {
-    getValue("userGroups").then(userGroups => {
-        var selectionField = $('<div id="area_userGroupSelect"></div>')
-        .css("padding-bottom", "25px");
-
-        userGroups.forEach(function(elem) {
-            var fieldName = elem.name;
-            var idPart = (fieldName).replace(/\s/, "_");
-
-            var newButtonContainer = $('<div class="button_container" id="container_' + idPart + '"></div>')
-            .css("min-width", "23%")
-            .css("z-index", "1")
-            .css("display", "inline-block")
-            .css("position", "relative");
-
-            var listId = "list_" + idPart
-            var listContainer = $('<div class="list_container" id="' + listId + '"></div>')
-            .css("position", "absolute")
-            .css("background-color", "mediumseagreen")
-            .css("margin", "0px 0.78947em 0px 0px")
-            .css("border", "#00501a 5px solid")
-            .css("border-top", "0")
-            .hide();
-
-            var divider = $('<div></div>').css("width", "100%").css("height", "0.5vh").css("background-color", "rgb(91, 168, 92);")
-            $(listContainer).append(divider);
-
-            var newButton = $('<div class="govuk-button" id="button_' + idPart + '">' + fieldName + '</div>')
-            .css("user-select", "none")
-            .css("margin-right", "0")
-            .css("display", "inline-block")
-            .css("height", "2em")
-            .css("margin", "0")
-            .css("box-sizing", "border-box");
-
-            var deleteButton = $('<div class="govuk-button govuk-button--warning"></div>')
-            .css("display", "inline-block")
-            .css("user-select", "none")
-            .css("height", "2em")
-            .css("margin", "0")
-            .css("box-sizing", "border-box");
-            $(deleteButton).append($('<div>+</div>').css("transform", "rotate(45deg)"));
-
-            var userButtons = elem.users.map(user => $(listContainer).append(generateUserButton(user, fieldName)));
-
-            $(newButtonContainer).click(() => {
-                var isHidden = $(listContainer).is(":hidden");
-                if(isHidden) {
-                    $(".list_container").each(function() {
-                        $(this).hide();
-                    });
-                }
-                $(listContainer).toggle();
-            });
-
-            $(deleteButton).click(() => {
-                deleteUserGroup(fieldName);
-            });
-
-            $(newButtonContainer)
-                .append(newButton)
-                .append(deleteButton)
-                .append(listContainer);
-            $(selectionField).append(newButtonContainer);
-        });
-
-        $(selectionField).insertBefore("#inputForm > div.govuk-warning-text");
-    });
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////////////////////// Field Population //////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-function fillFirstRow(enrolmentKey, enrolmentIdentifier, enrolmentValue) {
-    $(firstEnrolmentKeySelector).val(enrolmentKey);
-    $(firstIdentifierNameSelector).val(enrolmentIdentifier);
-    $(firstIdentifierValueSelector).val(enrolmentValue);
-}
-
-function fillNino(newValue) {
-    $(ninoInputSelector).val(newValue);
-}
-
-function changeDropdown(selector, newValue) {
-    console.log("Updating " + selector + " dropdown to " + newValue);
-
-    $(selector).val(newValue).change();
-}
-
-function fillIndividual(input) {
-    var nino = input.nino
-    var confidenceLevel = input.confidence
-
-    changeDropdown(confidenceLevelSelector, confidenceLevel);
-    changeDropdown(affinityGroupSelector, "Individual");
-    fillNino(nino);
-
-    if(input.enrolments == null || input.enrolments.length == 1) {
-        var enrolmentKey = input.enrolment.key
-        var enrolmentIdentifier = input.enrolment.identifierName
-        var enrolmentValue = input.enrolment.identifierValue
-
-        console.log("Updating enrolment row 1 with the following data:\nKey: "+enrolmentKey+"\nName: "+enrolmentIdentifier+"\nValue: "+enrolmentValue);
-
-        fillFirstRow(enrolmentKey, enrolmentIdentifier, enrolmentValue);
-    } else {
-        input.enrolments.forEach(function(_enrolment, index) {
-            var _key = _enrolment.key;
-            var _name = _enrolment.name;
-            var _value = _enrolment.value;
-
-            console.log("Updating enrolment row " + (index+1) + " with the following data:\nKey: "+_key+"\nName: "+_name+"\nValue: "+_value);
-
-            if($("[name='enrolment["+ index +"].name']").length < 1) {
-                document.getElementById("js-add-enrolment").click();
+        var userCross = $(`<div class="govuk-button govuk-button--warning group_row_cross"><div class="rotate_45">+</div></div>`).click(function () {
+            if(window.confirm("Are you sure you want to delete the user '" + user.name + "'?\nThis action cannot be undone.")) {
+                deleteUser(user.name, user.group);
+                location.reload();
             }
+        })
 
-            $("[name='enrolment["+ index +"].name']").val(_key);
-            $("#input-" + index + "-0-name").val(_name);
-            $("#input-" + index + "-0-value").val(_value);
-        });
-    }
+        var userRow = $(`<div class="user_row selectable"></div>`).append(userHeader).append(userCross);
+
+        $(groupSelector).append(userRow);
+    })
 }
 
-function fillAgent(input) {
-    $("#delegated-enrolments-fields").empty();
-    changeDropdown(affinityGroupSelector, "Agent");
+function renderFavourites() {
+    var html = $(`<div id="user_profiles_fav" class="user_profiles_fav"></div>`)
 
-    var addEnrolmentButtonSelector = "#js-add-enrolment";
-    var addDelegatedEnrolmentButtonSelector = "#js-add-delegated-enrolment";
+    return html;
+}
 
-    input.enrolments.forEach(function(_enrolment, index) {
-        var _key = _enrolment.key;
-        var _name = _enrolment.name;
-        var _value = _enrolment.value;
+function generateSidebar() {
+    var rootSidebar = $(`<div class="sidebar" id="sidebar">
+                        </div>`);
 
-        console.log("Updating enrolment row " + (index+1) + ", for agent, with the following data:\nKey: "+_key+"\nName: "+_name+"\nValue: "+_value);
+    //////////// Menu Icon Display
 
-        if($("[name='enrolment["+ index +"].name']").length < 1) {
-            document.getElementById("js-add-enrolment").click();
+    var menuIcon = $(`
+    <div class="icon_container selectable">
+        <div class="menu_icon">
+            <div class="bar1"></div>
+            <div class="bar2"></div>
+            <div class="bar3"></div>
+        </div>
+    </div>`).click(function() {
+        toggleMenu(this);
+        $("#sidebar").toggleClass("shown")
+    });
+
+    var menuRow = $(`
+    <div class="sidebar_row sidebar_header">
+      <div class="row_text">
+        ${appTitle}
+      </div>
+    </div>
+    `).append(menuIcon)
+
+    //////////// Capture Form Data Display
+    var captureIcon = `<div class="icon_container">
+                         <div class="capture_icon"></div>
+                       </div>`
+
+    var captureRow = $(`
+      <div class="sidebar_row selectable capture_row">
+        <div class="row_text">
+          ${captureFormData}
+        </div>
+        ${captureIcon}
+      </div>
+    `).click(function() {
+        if(getUserGroups().length > 0) {
+            displayNewUserScreen();
+        } else {
+            window.alert("You cannot capture user data before making at least one User Group.");
         }
-
-        $("[name='enrolment["+ index +"].name']").val(_key);
-        $("#input-" + index + "-0-name").val(_name);
-        $("#input-" + index + "-0-value").val(_value);
-    });
-
-    input.delegated.forEach(function(_enrolment, index) {
-        var _key = _enrolment.key;
-        var _name = _enrolment.name;
-        var _value = _enrolment.value;
-        var _auth = _enrolment.auth
-
-        console.log("Updating delegated enrolment row " + (index+1) + " with the following data:\nKey: "+_key+"\nName: "+_name+"\nValue: "+_value+"\nAuth rule: "+_auth);
-
-        $(addDelegatedEnrolmentButtonSelector).click();
-
-        $("[name='delegatedEnrolment\\[" + index + "\\]\\.key']").val(_key);
-        $("#input-delegated-" + index + "-0-name").val(_name);
-        $("#input-delegated-" + index + "-0-value").val(_value);
-        $("[name='delegatedEnrolment\\[" + index + "\\]\\.delegatedAuthRule']").val(_auth);
-    })
-}
-
-function fillUser(input) {
-    $($("#js-enrolments-table").find("input")).each(function() {
-        $(this).val("");
     })
 
-    var individual = input.affinity == "individual";
+    //////////// Overwrite Form Data Display
+    var overwriteIcon = `<div class="icon_container">
+                         <div class="overwrite_icon"></div>
+                       </div>`
 
-    if(individual) {
-        fillIndividual(input);
-    } else {
-        fillAgent(input);
-    }
+    var overwriteRow = $(`
+      <div id="overwrite_row" class="sidebar_row selectable capture_row unselectable">
+        <div class="row_text">
+          ${overwriteFormData}
+        </div>
+        ${overwriteIcon}
+      </div>
+    `).click(function() {
+        if(selectedUser && selectedUserGroup && selectedUser != "" && selectedUserGroup != "") {
+            var users = getUsers();
+            var foundUser;
+
+            users.forEach((user) => {
+                if(user.name == selectedUser && user.group == selectedUserGroup) {
+                    foundUser = user;
+                }
+            })
+
+            if(foundUser && foundUser.name == selectedUser) {
+                var data = captureForm();
+                if(!data) return;
+
+                overwriteUser(selectedUser, selectedUserGroup, data);
+                window.alert(`User '${selectedUser}' from the group '${selectedUserGroup}' has been overwritten.`);
+            }
+        }
+    })
+
+    //////////// New Profile Display
+    var newProfileIcon = `<div class="icon_container">
+                         <div class="new_profile_icon"></div>
+                       </div>`
+
+    var newProfileRow = $(`
+      <div class="sidebar_row selectable capture_row">
+        <div class="row_text">
+          ${newProfileText}
+        </div>
+        ${newProfileIcon}
+      </div>
+    `).click(function() {
+        var newGroup = prompt("Enter a name for the new user group");
+        if(newGroup == "") {
+            window.alert("The group name cannot be empty");
+        } else if(newGroup != null) {
+            saveUserGroup(newGroup);
+            location.reload();
+        }
+    })
+
+    var userRootRow = $(`<div class="users_root_container">
+    </div>`).append(renderUserGroups).append(renderFavourites);
+
+    rootSidebar
+        .append(menuRow)
+        .append(captureRow)
+        .append(overwriteRow)
+        .append(newProfileRow)
+        .append(userRootRow)
+
+    $('body').prepend(rootSidebar)
+
+    renderUsers();
 }
 
 (function() {
     'use strict';
 
-    generateNewUserButtons();
-    generateUserGroupButtons();
-
-    $("#button_createUserGroup").click(generateCreateGroupInput);
-    $("#button_createUser").click(generateCreateUserInput);
+    generateSidebar();
+    populateFavourites();
+    generateStyles();
 })();
