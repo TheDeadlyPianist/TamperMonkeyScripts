@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - Credentials
 // @namespace    https://github.com/
-// @version      3.0.0
+// @version      3.0.1
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -1108,7 +1108,7 @@ function generateFavouriteTag(user) {
         }
     });
 
-    return $(`<div class="favourite_tag selectable">${displayedName}</div>`).click(() => {
+    return $(`<div title="${user.group} :: ${user.name}" class="favourite_tag selectable">${displayedName}</div>`).click(() => {
         selectUser(user);
     });
 }
@@ -1261,9 +1261,11 @@ function generateSidebar() {
     `).append(menuIcon)
 
     //////////// Capture Form Data Display
-    var captureIcon = `<div class="icon_container">
+    var captureIcon = `<div title="Capture Page Data" class="icon_container">
                          <div class="capture_icon"></div>
                        </div>`
+
+    var enoughGroupsForCapture = getUserGroups().length > 0;
 
     var captureRow = $(`
       <div class="sidebar_row selectable capture_row">
@@ -1273,15 +1275,17 @@ function generateSidebar() {
         ${captureIcon}
       </div>
     `).click(function() {
-        if(getUserGroups().length > 0) {
+        if(enoughGroupsForCapture) {
             displayNewUserScreen();
-        } else {
-            window.alert("You cannot capture user data before making at least one User Group.");
         }
     })
 
+    if(!enoughGroupsForCapture) {
+        $(captureRow).addClass("unselectable");
+    }
+
     //////////// Overwrite Form Data Display
-    var overwriteIcon = `<div class="icon_container">
+    var overwriteIcon = `<div title="Overwrite Last Selected User" class="icon_container">
                          <div class="overwrite_icon"></div>
                        </div>`
 
@@ -1314,7 +1318,7 @@ function generateSidebar() {
     })
 
     //////////// New Profile Display
-    var newProfileIcon = `<div class="icon_container">
+    var newProfileIcon = `<div title="Create new User Group" class="icon_container">
                          <div class="new_profile_icon"></div>
                        </div>`
 
