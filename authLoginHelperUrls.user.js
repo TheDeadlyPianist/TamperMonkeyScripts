@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - URLs
 // @namespace    http://github.com/
-// @version      2.6.1
+// @version      2.6.2
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -23,8 +23,8 @@
     var urlBoxSelector = "#redirectionUrl";
     var newUrlLocation = "#redirectionUrl-hint"
 
-    function getStorageJson() {
-        var allEntries = GM_listValues();
+    async function getStorageJson() {
+        var allEntries = await GM_listValues();
         var dataObject = {};
 
         allEntries.forEach( dataName => {
