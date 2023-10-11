@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auth Login Helper - Credentials
 // @namespace    https://github.com/
-// @version      3.0.1
+// @version      3.0.2
 // @description  TIMESAVER
 // @author       Duane Matthew Hipwell
 // @match        */auth-login-stub/gg-sign-in*
@@ -11,13 +11,14 @@
 // @grant        GM_setValue
 // @grant        GM_listValues
 // @grant        GM_info
-// @grant        GM_getResourceURL
+// @grant        GM_addElement
 // @require      http://code.jquery.com/jquery-3.4.1.min.js
-// @resource     capture_icon https://cdn-icons-png.flaticon.com/512/685/685661.png
-// @resource     new_profile_icon https://www.seekpng.com/png/full/132-1328947_icon-new-folder-new-folder-icon-png.png
-// @resource     overwrite_icon https://cdn.icon-icons.com/icons2/2248/PNG/512/file_replace_icon_136634.png
-// @resource     heart_icon https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Love_Heart_symbol.svg/512px-Love_Heart_symbol.svg.png
 // ==/UserScript==
+
+var captureIconUrl = "https://cdn-icons-png.flaticon.com/512/685/685661.png"
+var newProfileIconUrl = "https://www.seekpng.com/png/full/132-1328947_icon-new-folder-new-folder-icon-png.png"
+var overwriteIconUrl = "https://cdn.icon-icons.com/icons2/2248/PNG/512/file_replace_icon_136634.png"
+var heartIconUrl = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Love_Heart_symbol.svg/512px-Love_Heart_symbol.svg.png"
 
 var selectedUser;
 var selectedUserGroup;
@@ -750,24 +751,7 @@ function generateStyles() {
             transition-duration: 0.2s;
           }
 
-          .capture_icon {
-            background-image: url("${GM_getResourceURL("capture_icon")}");
-            width: 60%;
-            height: 60%;
-            background-size: contain;
-            background-repeat: no-repeat;
-          }
-
-          .new_profile_icon {
-            background-image: url("${GM_getResourceURL("new_profile_icon")}");
-            width: 60%;
-            height: 60%;
-            background-size: contain;
-            background-repeat: no-repeat;
-          }
-
-          .overwrite_icon {
-            background-image: url("${GM_getResourceURL("overwrite_icon")}");
+          .basic_icon {
             width: 60%;
             height: 60%;
             background-size: contain;
@@ -775,11 +759,6 @@ function generateStyles() {
           }
 
           .heart_icon {
-            background-image: url("${GM_getResourceURL("heart_icon")}");
-            width: 60%;
-            height: 60%;
-            background-size: contain;
-            background-repeat: no-repeat;
             opacity: 0.4;
           }
 
@@ -1183,7 +1162,10 @@ function renderUsers() {
             selectUser(user);
         });
 
-        var heartIcon = $(`<div class="heart_icon"/>`)
+        var heartIcon = GM_addElement('img', {
+            src: heartIconUrl,
+            class: 'basic_icon heart_icon'
+        })
 
         favourites.forEach(fav => {
             if(fav.name == name && fav.group == group) {
@@ -1191,7 +1173,7 @@ function renderUsers() {
             }
         })
 
-        var userNameHeartIcon = $(`<div class="icon_container"></div>`).append(heartIcon).click(function () {
+        var userNameHeartIcon = $(`<div class="icon_container" id="heart_icon_container"></div>`).append(heartIcon).click(function () {
             favourites = getFavourites();
 
             if(favourites.filter(fav => (fav.name == name && fav.group == group)).length > 0) {
@@ -1261,9 +1243,7 @@ function generateSidebar() {
     `).append(menuIcon)
 
     //////////// Capture Form Data Display
-    var captureIcon = `<div title="Capture Page Data" class="icon_container">
-                         <div class="capture_icon"></div>
-                       </div>`
+    var captureIcon = `<div title="Capture Page Data" class="icon_container" id="capture_icon_container"></div>`
 
     var enoughGroupsForCapture = getUserGroups().length > 0;
 
@@ -1285,9 +1265,7 @@ function generateSidebar() {
     }
 
     //////////// Overwrite Form Data Display
-    var overwriteIcon = `<div title="Overwrite Last Selected User" class="icon_container">
-                         <div class="overwrite_icon"></div>
-                       </div>`
+    var overwriteIcon = `<div title="Overwrite Last Selected User" class="icon_container" id="overwrite_icon_container"></div>`
 
     var overwriteRow = $(`
       <div id="overwrite_row" class="sidebar_row selectable capture_row unselectable">
@@ -1318,9 +1296,7 @@ function generateSidebar() {
     })
 
     //////////// New Profile Display
-    var newProfileIcon = `<div title="Create new User Group" class="icon_container">
-                         <div class="new_profile_icon"></div>
-                       </div>`
+    var newProfileIcon = `<div title="Create new User Group" class="icon_container" id="new_profile_icon_container"></div>`
 
     var newProfileRow = $(`
       <div class="sidebar_row selectable capture_row">
@@ -1354,10 +1330,28 @@ function generateSidebar() {
     renderUsers();
 }
 
+function generateIcons() {
+    GM_addElement(document.getElementById('new_profile_icon_container'), 'img', {
+        src: newProfileIconUrl,
+        class: 'basic_icon'
+    })
+
+    GM_addElement(document.getElementById('capture_icon_container'), 'img', {
+        src: captureIconUrl,
+        class: 'basic_icon'
+    })
+
+    GM_addElement(document.getElementById('overwrite_icon_container'), 'img', {
+        src: overwriteIconUrl,
+        class: 'basic_icon'
+    })
+}
+
 (function() {
     'use strict';
 
     generateSidebar();
     populateFavourites();
     generateStyles();
+    generateIcons();
 })();
